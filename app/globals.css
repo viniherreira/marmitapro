@@ -1,0 +1,403 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* ------------------------------------------------------------------ */
+/*  Dark mode por classe (persistida em localStorage + cookie)          */
+/* ------------------------------------------------------------------ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ------------------------------------------------------------------ */
+/*  Tokens de marca — MarmitaPRO                                       */
+/*  Nenhuma cor deve ser escrita direto em componente.                 */
+/* ------------------------------------------------------------------ */
+:root {
+  /* superfícies */
+  --background: #fafaf8;
+  --surface: #ffffff;
+  --surface-sunken: #f2f2ee;
+  --surface-hover: #f5f5f1;
+
+  /* texto */
+  --foreground: #12150f;
+  --muted: #6b6f68;
+  --muted-strong: #4a4e47;
+
+  /* linhas */
+  --border: #e4e4df;
+  --border-strong: #d2d2ca;
+
+  /* marca */
+  --primary: #123b2e;
+  --primary-hover: #0b2c21;
+  --primary-foreground: #f6faf5;
+  --primary-soft: #eaf0ec;
+
+  /* destaque pontual — progresso, badges */
+  --accent: #a3e635;
+  --accent-foreground: #16300b;
+  --accent-soft: #f0f9dd;
+
+  /* semânticos */
+  --success: #2e7d5e;
+  --success-soft: #e7f2ec;
+  --warning: #a9701a;
+  --warning-soft: #fbf1de;
+  --destructive: #a03327;
+  --destructive-foreground: #fff6f4;
+  --destructive-soft: #f9e9e6;
+
+  /* foco */
+  --ring: #123b2e;
+
+  /* famílias — no :root para ficarem acessíveis ao CSS escrito à mão;
+     espelhadas em @theme para gerar as utilidades do Tailwind */
+  --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-fraunces), ui-serif, Georgia, serif;
+
+  /* raio — 12px é o padrão do produto */
+  --radius: 0.75rem;
+
+  /* elevação: usada só em camadas flutuantes, nunca em card */
+  --shadow-pop: 0 1px 2px -1px rgb(18 21 15 / 0.08), 0 12px 32px -8px rgb(18 21 15 / 0.12);
+}
+
+.dark {
+  --background: #0e100f;
+  --surface: #161917;
+  --surface-sunken: #121412;
+  --surface-hover: #1c201d;
+
+  --foreground: #f2f3ef;
+  --muted: #9a9e96;
+  --muted-strong: #b9bdb4;
+
+  --border: #252925;
+  --border-strong: #343a34;
+
+  --primary: #2e7d5e;
+  --primary-hover: #379170;
+  --primary-foreground: #05120c;
+  --primary-soft: #16241e;
+
+  --accent: #a3e635;
+  --accent-foreground: #16300b;
+  --accent-soft: #1e2a12;
+
+  --success: #4fa37f;
+  --success-soft: #15241d;
+  --warning: #d5a144;
+  --warning-soft: #2a2113;
+  --destructive: #dd7d6d;
+  --destructive-foreground: #180d0b;
+  --destructive-soft: #2a1714;
+
+  --ring: #4fa37f;
+
+  --shadow-pop: 0 1px 2px -1px rgb(0 0 0 / 0.6), 0 12px 32px -8px rgb(0 0 0 / 0.55);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Ponte com o Tailwind                                               */
+/* ------------------------------------------------------------------ */
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-hover: var(--surface-hover);
+
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-strong: var(--muted-strong);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+
+  --color-ring: var(--ring);
+
+  /* aliases de compatibilidade com as primitivas do shadcn/ui,
+     apontando para os tokens de marca — nada de paleta paralela */
+  --color-card: var(--surface);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--foreground);
+  --color-input: var(--surface-sunken);
+  --color-secondary: var(--surface-sunken);
+  --color-secondary-foreground: var(--foreground);
+
+  --font-sans: var(--font-body);
+  --font-display: var(--font-heading);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 12px);
+
+  --shadow-pop: var(--shadow-pop);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Base                                                               */
+/* ------------------------------------------------------------------ */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Foco visível e consistente em tudo que é interativo */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  ::selection {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  /* Números sempre tabulares — é um app de cálculo */
+  input[type="number"],
+  table,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border: 3px solid var(--background);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Escala tipográfica do produto                                      */
+/* ------------------------------------------------------------------ */
+@layer components {
+  .font-display {
+    font-family: var(--font-heading);
+    font-weight: 400;
+    font-variation-settings: "SOFT" 0, "WONK" 1, "opsz" 144;
+    letter-spacing: -0.018em;
+  }
+
+  /* Display editorial — herói e aberturas de seção */
+  .t-display {
+    font-family: var(--font-heading);
+    font-weight: 400;
+    font-variation-settings: "SOFT" 0, "WONK" 1, "opsz" 144;
+    font-size: clamp(2.5rem, 1.2rem + 5.4vw, 4.5rem);
+    line-height: 1.02;
+    letter-spacing: -0.028em;
+    text-wrap: balance;
+  }
+
+  .t-h1 {
+    font-family: var(--font-heading);
+    font-weight: 400;
+    font-variation-settings: "SOFT" 0, "WONK" 1, "opsz" 72;
+    font-size: clamp(1.875rem, 1.1rem + 2.6vw, 2.75rem);
+    line-height: 1.1;
+    letter-spacing: -0.022em;
+    text-wrap: balance;
+  }
+
+  .t-h2 {
+    font-family: var(--font-heading);
+    font-weight: 400;
+    font-variation-settings: "SOFT" 0, "WONK" 0, "opsz" 36;
+    font-size: clamp(1.375rem, 1rem + 1.1vw, 1.75rem);
+    line-height: 1.18;
+    letter-spacing: -0.016em;
+  }
+
+  .t-h3 {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 1.0625rem;
+    line-height: 1.35;
+    letter-spacing: -0.008em;
+  }
+
+  .t-lead {
+    font-size: clamp(1.0625rem, 1rem + 0.35vw, 1.1875rem);
+    line-height: 1.6;
+    color: var(--muted);
+    text-wrap: pretty;
+  }
+
+  .t-body {
+    font-size: 0.9688rem;
+    line-height: 1.68;
+  }
+
+  .t-small {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  /* Sobrelinha / eyebrow — assina as seções */
+  .t-eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Número grande de resultado — calculadoras */
+  .t-metric {
+    font-family: var(--font-heading);
+    font-weight: 400;
+    font-variation-settings: "SOFT" 0, "WONK" 0, "opsz" 72;
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(1.75rem, 1.2rem + 1.8vw, 2.375rem);
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Texturas — dão matéria ao off-white sem virar ruído visual         */
+/* ------------------------------------------------------------------ */
+@layer components {
+  .texture-paper {
+    position: relative;
+    isolation: isolate;
+  }
+  .texture-paper::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.55;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  }
+  .dark .texture-paper::before {
+    opacity: 0.3;
+  }
+
+  /* Grade fina de fundo — usada só em aberturas */
+  .texture-grid {
+    background-image:
+      linear-gradient(to right, var(--border) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+    background-size: 72px 72px;
+    -webkit-mask-image: radial-gradient(ellipse 90% 62% at 50% 0%, #000 18%, transparent 76%);
+    mask-image: radial-gradient(ellipse 90% 62% at 50% 0%, #000 18%, transparent 76%);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Movimento — discreto, 150–200ms                                    */
+/* ------------------------------------------------------------------ */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sweep {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@layer components {
+  .animate-rise {
+    animation: rise 480ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--surface-sunken);
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--foreground) 5%, transparent),
+      transparent
+    );
+    animation: sweep 1.6s infinite;
+  }
+}
