@@ -27,7 +27,9 @@ function TabsList({
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        "relative flex w-full items-center gap-6 overflow-x-auto border-b border-border",
+        "relative flex w-full items-center gap-6 border-b border-border",
+        // rolagem lateral no mobile, sem barra visível
+        "overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         className
       )}
       {...props}
