@@ -1,4 +1,5 @@
 import { clienteAdmin } from "@/lib/supabase/server";
+import { itemDeCalculoSchema } from "@/lib/validacao/schemas";
 import type { CalculoSalvo, CenarioDePreco, Ingrediente } from "@/types/database";
 
 /** Base de ingredientes usada pela calculadora de macros. */
@@ -29,7 +30,22 @@ export async function listarCalculosSalvos(
     .limit(limite);
 
   if (error) throw new Error(error.message);
-  return data ?? [];
+
+  // `itens` é jsonb: o banco não garante a forma, então validamos na leitura.
+  // Item malformado é descartado em vez de derrubar a página inteira.
+  return (data ?? []).map((linha) => ({
+    ...linha,
+    itens: itensValidados(linha.itens),
+  }));
+}
+
+function itensValidados(bruto: unknown): CalculoSalvo["itens"] {
+  if (!Array.isArray(bruto)) return [];
+
+  return bruto.flatMap((item) => {
+    const analise = itemDeCalculoSchema.safeParse(item);
+    return analise.success ? [analise.data] : [];
+  });
 }
 
 export async function listarCenarios(
