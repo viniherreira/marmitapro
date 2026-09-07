@@ -1,8 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter } from "next/font/google";
+import { ptBR } from "@clerk/localizations";
+import { ClerkProvider } from "@clerk/nextjs";
 
+import { aparenciaClerk } from "@/components/auth/aparencia-clerk";
+import { RegistrarServiceWorker } from "@/components/pwa/registrar-service-worker";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { clerkConfigurado } from "@/lib/env";
 import "./globals.css";
 
 const inter = Inter({
@@ -58,7 +63,7 @@ export const viewport: Viewport = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  return (
+  const documento = (
     // As variáveis de fonte ficam no <html>: os tokens --font-body e
     // --font-heading são resolvidos no :root e precisam enxergá-las ali.
     <html
@@ -70,8 +75,21 @@ export default function RootLayout({
         <ThemeProvider>
           {children}
           <Toaster />
+          <RegistrarServiceWorker />
         </ThemeProvider>
       </body>
     </html>
+  );
+
+  // Sem as chaves do Clerk o provider não é montado, para que a landing e o
+  // design system continuem funcionando durante a configuração do ambiente.
+  if (!clerkConfigurado) {
+    return documento;
+  }
+
+  return (
+    <ClerkProvider localization={ptBR} appearance={aparenciaClerk}>
+      {documento}
+    </ClerkProvider>
   );
 }

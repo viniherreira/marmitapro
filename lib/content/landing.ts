@@ -35,7 +35,7 @@ export const FICHA_DO_HEROI = {
     { rotulo: "Gás e energia", valor: 0.45 },
     { rotulo: "Mão de obra · 12 min", valor: 2.4 },
   ],
-  margem: 1,
+  margem: 0.5,
   macros: [
     { rotulo: "Proteína", valor: "42 g" },
     { rotulo: "Carboidrato", valor: "58 g" },
@@ -48,7 +48,7 @@ export const CUSTO_TOTAL_HEROI = FICHA_DO_HEROI.custos.reduce(
   (total, item) => total + item.valor,
   0
 );
-export const PRECO_HEROI = CUSTO_TOTAL_HEROI * (1 + FICHA_DO_HEROI.margem);
+export const PRECO_HEROI = CUSTO_TOTAL_HEROI / (1 - FICHA_DO_HEROI.margem);
 export const LUCRO_HEROI = PRECO_HEROI - CUSTO_TOTAL_HEROI;
 
 export type Dor = { numero: string; titulo: string; texto: string };

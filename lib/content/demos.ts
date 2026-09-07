@@ -12,7 +12,7 @@ export const DEMO_CALCULO = {
     { rotulo: "12 min × R$ 12,00/hora", operacao: "+", valor: "R$ 2,40" },
   ],
   subtotal: { rotulo: "Custo real por unidade", valor: "R$ 10,85" },
-  margem: { rotulo: "Margem de 100%", operacao: "×", valor: "2,00" },
+  margem: { rotulo: "Margem de 50% sobre o preço", operacao: "÷", valor: "0,50" },
   total: { rotulo: "Preço sugerido", valor: "R$ 21,70" },
   projecao: [
     { rotulo: "120 marmitas/mês", valor: "R$ 2.604,00" },
