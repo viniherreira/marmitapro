@@ -37,6 +37,13 @@
   --accent-foreground: #16300b;
   --accent-soft: #f0f9dd;
 
+  /* Painel de marca (lateral do login). Fica escuro nos dois temas: usar
+     --primary aqui invertia o painel no dark, virando verde claro com texto
+     quase preto. */
+  --brand-panel: #123b2e;
+  --brand-panel-foreground: #f6faf5;
+  --brand-panel-muted: #a8bfb4;
+
   /* semânticos */
   --success: #2e7d5e;
   --success-soft: #e7f2ec;
@@ -83,6 +90,10 @@
   --accent-foreground: #16300b;
   --accent-soft: #1e2a12;
 
+  --brand-panel: #0d2a20;
+  --brand-panel-foreground: #eef3ec;
+  --brand-panel-muted: #8fa89c;
+
   --success: #4fa37f;
   --success-soft: #15241d;
   --warning: #d5a144;
@@ -120,6 +131,10 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-soft: var(--accent-soft);
+
+  --color-brand-panel: var(--brand-panel);
+  --color-brand-panel-foreground: var(--brand-panel-foreground);
+  --color-brand-panel-muted: var(--brand-panel-muted);
 
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);

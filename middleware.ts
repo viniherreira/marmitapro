@@ -5,11 +5,28 @@ import { appConfigurado } from "@/lib/env";
 
 const rotaProtegida = createRouteMatcher(["/app(.*)", "/onboarding(.*)"]);
 
-const protegerComClerk = clerkMiddleware(async (auth, request) => {
-  if (rotaProtegida(request)) {
-    await auth.protect();
-  }
-});
+/**
+ * Tolerância a relógio dessincronizado, só em desenvolvimento.
+ *
+ * O Clerk assina o token com a hora do servidor dele. Se o relógio da máquina
+ * estiver alguns segundos atrasado, o token parece "emitido no futuro", a
+ * sessão é recusada e o handshake entra em laço — o componente de login fica
+ * em branco e o passo do código de verificação nunca aparece.
+ *
+ * Em produção mantemos o padrão do Clerk: afrouxar a validação de tempo num
+ * servidor com relógio sincronizado só ampliaria a janela de reuso de token.
+ */
+const TOLERANCIA_DE_RELOGIO_MS =
+  process.env.NODE_ENV === "production" ? undefined : 60_000;
+
+const protegerComClerk = clerkMiddleware(
+  async (auth, request) => {
+    if (rotaProtegida(request)) {
+      await auth.protect();
+    }
+  },
+  { clockSkewInMs: TOLERANCIA_DE_RELOGIO_MS }
+);
 
 /**
  * A proteção de rota só entra quando o app está inteiramente configurado —

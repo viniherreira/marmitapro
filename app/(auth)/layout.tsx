@@ -19,16 +19,16 @@ export default function AuthLayout({
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
       {/* Painel de marca — some no mobile para não empurrar o formulário */}
-      <aside className="relative hidden flex-col justify-between bg-primary p-10 text-primary-foreground lg:flex xl:p-14">
-        <Link href="/" className="rounded-sm text-[15px] text-primary-foreground">
+      <aside className="relative hidden flex-col justify-between bg-brand-panel p-10 text-brand-panel-foreground lg:flex xl:p-14">
+        <Link href="/" className="rounded-sm text-[15px] text-brand-panel-foreground">
           <Logo markClassName="text-accent" />
         </Link>
 
         <div className="max-w-md">
-          <p className="t-eyebrow text-primary-foreground/60">
+          <p className="t-eyebrow text-brand-panel-muted">
             {PROMESSA.sobrelinha}
           </p>
-          <p className="t-h1 mt-5 text-primary-foreground">
+          <p className="t-h1 mt-5 text-brand-panel-foreground">
             {PROMESSA.titulo}
           </p>
 
@@ -39,7 +39,7 @@ export default function AuthLayout({
                   className="mt-1 size-3.5 shrink-0 text-accent"
                   aria-hidden="true"
                 />
-                <span className="text-[0.9375rem] text-primary-foreground/85">
+                <span className="text-[0.9375rem] text-brand-panel-foreground/90">
                   {item}
                 </span>
               </li>
@@ -47,7 +47,7 @@ export default function AuthLayout({
           </ul>
         </div>
 
-        <p className="text-[0.8125rem] text-primary-foreground/55">
+        <p className="text-[0.8125rem] text-brand-panel-muted">
           Os cálculos nutricionais são estimativas e não substituem laudo
           laboratorial.
         </p>
