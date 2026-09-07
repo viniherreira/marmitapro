@@ -1,7 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 
-import { clerkConfigurado } from "@/lib/env";
+import { appConfigurado } from "@/lib/env";
 
 const rotaProtegida = createRouteMatcher(["/app(.*)", "/onboarding(.*)"]);
 
@@ -12,12 +12,14 @@ const protegerComClerk = clerkMiddleware(async (auth, request) => {
 });
 
 /**
- * Enquanto as chaves do Clerk não estiverem definidas, o middleware sai do
- * caminho: a landing e o design system continuam navegáveis e as rotas do app
- * mostram a tela de configuração pendente.
+ * A proteção de rota só entra quando o app está inteiramente configurado —
+ * Clerk e Supabase, com chaves reais. Enquanto faltar qualquer credencial, ou
+ * enquanto houver só placeholders, o middleware sai do caminho e as rotas do
+ * app renderizam a tela de "Configuração pendente" em vez de exigir login
+ * contra uma instância que ainda não está pronta.
  */
 export default function middleware(request: NextRequest, event: NextFetchEvent) {
-  if (!clerkConfigurado) {
+  if (!appConfigurado) {
     return NextResponse.next();
   }
 
