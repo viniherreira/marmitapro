@@ -21,11 +21,25 @@ const TOLERANCIA_DE_RELOGIO_MS =
 
 const protegerComClerk = clerkMiddleware(
   async (auth, request) => {
-    if (rotaProtegida(request)) {
-      await auth.protect();
-    }
+    if (!rotaProtegida(request)) return;
+
+    // Sem `unauthenticatedUrl`, o auth.protect() responde 404 a quem não está
+    // logado — o visitante deslogado levaria "página não encontrada" em vez da
+    // tela de login. Mandamos para /entrar guardando o destino, para cair na
+    // página certa depois de autenticar.
+    const destino = new URL("/entrar", request.url);
+    destino.searchParams.set(
+      "redirect_url",
+      request.nextUrl.pathname + request.nextUrl.search
+    );
+
+    await auth.protect({ unauthenticatedUrl: destino.toString() });
   },
-  { clockSkewInMs: TOLERANCIA_DE_RELOGIO_MS }
+  {
+    clockSkewInMs: TOLERANCIA_DE_RELOGIO_MS,
+    signInUrl: "/entrar",
+    signUpUrl: "/cadastro",
+  }
 );
 
 /**
