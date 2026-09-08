@@ -7,7 +7,7 @@ import { aparenciaClerk } from "@/components/auth/aparencia-clerk";
 import { RegistrarServiceWorker } from "@/components/pwa/registrar-service-worker";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
-import { clerkConfigurado } from "@/lib/env";
+import { clerkConfigurado, urlDoApp } from "@/lib/env";
 import "./globals.css";
 
 const inter = Inter({
@@ -24,9 +24,7 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-  ),
+  metadataBase: new URL(urlDoApp()),
   title: {
     default: "MarmitaPRO — monte e opere seu negócio de marmitas fit",
     template: "%s · MarmitaPRO",

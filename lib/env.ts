@@ -44,6 +44,44 @@ export const supabaseConfigurado =
 
 export const appConfigurado = clerkConfigurado && supabaseConfigurado;
 
+/**
+ * URL pública do app, usada em metadados e Open Graph.
+ *
+ * Nada aqui pode lançar: esta função roda durante o `next build`, e uma
+ * exceção derruba a compilação inteira em "Collecting page data" — foi o que
+ * aconteceu no primeiro deploy, com `new URL("")`. Uma variável criada na
+ * Vercel sem valor chega como string vazia, e `??` só protege contra
+ * undefined. Sem valor informado, a própria Vercel diz o domínio do deploy.
+ */
+export function urlDoApp(): string {
+  const candidatos = [
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    process.env.VERCEL_URL,
+  ];
+
+  for (const candidato of candidatos) {
+    const url = comoOrigem(candidato);
+    if (url) return url;
+  }
+
+  return "http://localhost:3000";
+}
+
+/** Aceita "exemplo.com" ou "https://exemplo.com"; devolve null para lixo. */
+function comoOrigem(bruto: string | undefined): string | null {
+  const texto = bruto?.trim();
+  if (!texto) return null;
+
+  const comEsquema = /^https?:\/\//i.test(texto) ? texto : `https://${texto}`;
+
+  try {
+    return new URL(comEsquema).origin;
+  } catch {
+    return null;
+  }
+}
+
 /** Lista o que falta, para a tela de configuração pendente. */
 export function variaveisFaltando(): string[] {
   const faltando: string[] = [];
