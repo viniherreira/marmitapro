@@ -48,6 +48,12 @@ export const NAVEGACAO_APP: ItemDeNavegacao[] = [
     rotuloCurto: "Receitas",
     icone: BookOpen,
   },
+  {
+    href: "/app/comunidade",
+    rotulo: "Comunidade",
+    rotuloCurto: "Comunidade",
+    icone: Users,
+  },
 ];
 
 /** Rotas já reservadas para a fase 2. Aparecem na sidebar, marcadas. */
@@ -59,17 +65,16 @@ export const NAVEGACAO_FASE_2: ItemDeNavegacao[] = [
     icone: ClipboardList,
     faseDois: true,
   },
-  {
-    href: "/app/comunidade",
-    rotulo: "Comunidade",
-    rotuloCurto: "Comunidade",
-    icone: Users,
-    faseDois: true,
-  },
 ];
 
-/** Itens da barra inferior no mobile — cinco no máximo, por conforto de toque. */
-export const NAVEGACAO_MOBILE = NAVEGACAO_APP;
+/**
+ * Itens da barra inferior no mobile — cinco no máximo, por conforto de toque.
+ * A comunidade fica de fora: é visita ocasional, e ela tem entrada própria no
+ * painel, que é a primeira tela de quem abre o app no celular.
+ */
+export const NAVEGACAO_MOBILE: ItemDeNavegacao[] = NAVEGACAO_APP.filter(
+  (item) => item.href !== "/app/comunidade"
+);
 
 export function rotaAtiva(pathname: string, href: string): boolean {
   if (href === "/app") return pathname === "/app";

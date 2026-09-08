@@ -4,6 +4,7 @@ import {
   ArrowRight,
   BookOpen,
   Calculator,
+  MessageCircle,
   PlayCircle,
   Scale,
   Utensils,
@@ -16,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Progress } from "@/components/ui/progress";
 import { garantirPerfil, primeiroNome } from "@/lib/auth/perfil";
+import { grupoConfigurado } from "@/lib/content/comunidade";
 import { carregarTrilha } from "@/lib/data/curso";
 import { listarCalculosSalvos, listarCenarios } from "@/lib/data/ferramentas";
 import { formatarInteiro, formatarMoeda } from "@/lib/format";
@@ -167,6 +169,36 @@ export default async function PainelPage() {
           })}
         </div>
       </section>
+
+      {/* Comunidade ---------------------------------------------------
+          Entrada principal no celular: a barra inferior guarda cinco itens e
+          a comunidade fica de fora, então ela precisa existir aqui. */}
+      {grupoConfigurado ? (
+        <section>
+          <Link
+            href="/app/comunidade"
+            className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-lg border border-border bg-surface px-5 py-4 transition-[border-color,background-color] duration-150 hover:border-border-strong hover:bg-surface-hover"
+          >
+            <span className="flex items-center gap-4">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-border bg-primary-soft text-primary">
+                <MessageCircle className="size-4" aria-hidden="true" />
+              </span>
+              <span>
+                <span className="block text-[0.9375rem] font-medium">
+                  Grupo da comunidade no WhatsApp
+                </span>
+                <span className="t-small block text-muted">
+                  Preço praticado, fornecedor e cardápio com quem já vende.
+                </span>
+              </span>
+            </span>
+            <span className="t-small flex items-center gap-1.5 text-primary">
+              Ver a comunidade
+              <ArrowRight className="size-3.5" aria-hidden="true" />
+            </span>
+          </Link>
+        </section>
+      ) : null}
 
       {/* Receitas salvas ---------------------------------------------- */}
       <section>

@@ -76,7 +76,13 @@ em `app/api/webhooks/` para sincronizar o status.
 
 **O que já existe**
 
-- A rota `/app/comunidade` reservada, para não quebrar links futuros
+- `/app/comunidade` entregue como ponte para o grupo de WhatsApp: convite,
+  expectativa do que se encontra lá e combinados do grupo
+- O link vem de `NEXT_PUBLIC_WHATSAPP_COMUNIDADE` e é validado antes de
+  aparecer — sem convite válido, a tela avisa em vez de levar a link quebrado
+- A comunidade dentro do produto (feed, tópicos, moderação) continua na fase 2;
+  o grupo externo é o degrau anterior, e serve para descobrir o que a
+  comunidade precisa antes de construí-la
 
 ---
 
