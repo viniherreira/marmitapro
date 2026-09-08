@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SignUp } from "@clerk/nextjs";
 
+import { AreaDeAutenticacao } from "@/components/auth/area-de-autenticacao";
 import { ConfiguracaoPendente } from "@/components/configuracao-pendente";
 import { clerkConfigurado } from "@/lib/env";
 
@@ -15,11 +16,13 @@ export default function CadastroPage() {
   }
 
   return (
-    <SignUp
-      routing="path"
-      path="/cadastro"
-      signInUrl="/entrar"
-      fallbackRedirectUrl="/onboarding"
-    />
+    <AreaDeAutenticacao voltarPara="/cadastro">
+      <SignUp
+        routing="path"
+        path="/cadastro"
+        signInUrl="/entrar"
+        fallbackRedirectUrl="/onboarding"
+      />
+    </AreaDeAutenticacao>
   );
 }
