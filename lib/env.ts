@@ -45,6 +45,17 @@ export const supabaseConfigurado =
 export const appConfigurado = clerkConfigurado && supabaseConfigurado;
 
 /**
+ * Se o app está rodando numa hospedagem em vez da máquina de alguém.
+ *
+ * Muda a orientação que damos quando falta credencial: em desenvolvimento a
+ * resposta é um arquivo `.env.local`; num deploy não existe arquivo nenhum, e
+ * mandar o usuário procurar por um só faz ele perder tempo.
+ */
+export const hospedado = Boolean(
+  process.env.VERCEL ?? process.env.RAILWAY_ENVIRONMENT ?? process.env.RENDER
+);
+
+/**
  * URL pública do app, usada em metadados e Open Graph.
  *
  * Nada aqui pode lançar: esta função roda durante o `next build`, e uma

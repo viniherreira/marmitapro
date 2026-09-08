@@ -3,7 +3,7 @@ import { KeyRound } from "lucide-react";
 
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
-import { variaveisFaltando } from "@/lib/env";
+import { hospedado, variaveisFaltando } from "@/lib/env";
 import { cn } from "@/lib/utils";
 
 /**
@@ -41,10 +41,26 @@ export function ConfiguracaoPendente({
 
           <h1 className="t-h2 mt-5">Configuração pendente</h1>
           <p className="t-body mt-3 text-muted">
-            O app precisa das credenciais do Clerk e do Supabase para funcionar.
-            Copie o arquivo <code className="font-mono text-[0.875em]">.env.example</code>{" "}
-            para <code className="font-mono text-[0.875em]">.env.local</code> e
-            preencha as variáveis abaixo.
+            {hospedado ? (
+              <>
+                Este deploy subiu sem as credenciais do Clerk e do Supabase.
+                Cadastre as variáveis abaixo em{" "}
+                <span className="text-foreground">
+                  Settings → Environment Variables
+                </span>{" "}
+                no painel da hospedagem. Não existe arquivo de ambiente aqui —
+                num deploy as variáveis vêm só do painel.
+              </>
+            ) : (
+              <>
+                O app precisa das credenciais do Clerk e do Supabase para
+                funcionar. Copie o arquivo{" "}
+                <code className="font-mono text-[0.875em]">.env.example</code>{" "}
+                para{" "}
+                <code className="font-mono text-[0.875em]">.env.local</code> e
+                preencha as variáveis abaixo.
+              </>
+            )}
           </p>
 
           <ul className="mt-6 divide-y divide-border overflow-hidden rounded-lg border border-border">
@@ -59,7 +75,9 @@ export function ConfiguracaoPendente({
           </ul>
 
           <p className="t-small mt-6 text-muted">
-            O passo a passo completo está no README, na seção de setup local.
+            {hospedado
+              ? "Depois de salvar, refaça o deploy sem o cache de build: as variáveis NEXT_PUBLIC_ são gravadas dentro do JavaScript na hora da compilação, e um build reaproveitado mantém os valores antigos."
+              : "O passo a passo completo está no README, na seção de setup local."}
           </p>
 
           <div className="mt-7 flex flex-wrap gap-3">
