@@ -31,9 +31,10 @@ export default async function ReceitaPage({ params }: Parametros) {
     notFound();
   }
 
+  // Sequência da tabela nutricional da RDC 429/2020: a ficha sai na mesma
+  // ordem que vai para o rótulo, para conferir linha a linha sem reorganizar.
   const nutrientes = [
-    ["Calorias", receita.totais.kcal, receita.porPorcao.kcal, "kcal", true],
-    ["Proteínas", receita.totais.proteina, receita.porPorcao.proteina, "g", false],
+    ["Valor energético", receita.totais.kcal, receita.porPorcao.kcal, "kcal", true],
     [
       "Carboidratos",
       receita.totais.carboidrato,
@@ -41,7 +42,22 @@ export default async function ReceitaPage({ params }: Parametros) {
       "g",
       false,
     ],
-    ["Gorduras", receita.totais.gordura, receita.porPorcao.gordura, "g", false],
+    ["Proteínas", receita.totais.proteina, receita.porPorcao.proteina, "g", false],
+    [
+      "Gorduras totais",
+      receita.totais.gordura,
+      receita.porPorcao.gordura,
+      "g",
+      false,
+    ],
+    [
+      "Fibra alimentar",
+      receita.totais.fibra,
+      receita.porPorcao.fibra,
+      "g",
+      false,
+    ],
+    ["Sódio", receita.totais.sodio, receita.porPorcao.sodio, "mg", true],
   ] as const;
 
   return (

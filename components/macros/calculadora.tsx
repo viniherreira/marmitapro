@@ -326,18 +326,26 @@ export function CalculadoraDeMacros({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {[
-                  ["Proteínas", totais.proteina, porPorcao.proteina, "g"],
-                  ["Carboidratos", totais.carboidrato, porPorcao.carboidrato, "g"],
-                  ["Gorduras", totais.gordura, porPorcao.gordura, "g"],
-                ].map(([rotulo, total, porcao, unidade]) => (
-                  <tr key={String(rotulo)}>
+                {/* A ordem segue a tabela nutricional da RDC 429/2020, para a
+                    ficha sair na mesma sequência que vai para o rótulo. */}
+                {(
+                  [
+                    ["Carboidratos", totais.carboidrato, porPorcao.carboidrato, "g", false],
+                    ["Proteínas", totais.proteina, porPorcao.proteina, "g", false],
+                    ["Gorduras totais", totais.gordura, porPorcao.gordura, "g", false],
+                    ["Fibra alimentar", totais.fibra, porPorcao.fibra, "g", false],
+                    ["Sódio", totais.sodio, porPorcao.sodio, "mg", true],
+                  ] as const
+                ).map(([rotulo, total, porcao, unidade, inteiro]) => (
+                  <tr key={rotulo}>
                     <td className="t-small py-2.5 text-muted">{rotulo}</td>
                     <td className="t-small py-2.5 text-right tabular-nums text-muted">
-                      {formatarDecimal(Number(total))} {unidade}
+                      {inteiro ? formatarInteiro(total) : formatarDecimal(total)}{" "}
+                      {unidade}
                     </td>
                     <td className="t-small py-2.5 text-right font-medium tabular-nums">
-                      {formatarDecimal(Number(porcao))} {unidade}
+                      {inteiro ? formatarInteiro(porcao) : formatarDecimal(porcao)}{" "}
+                      {unidade}
                     </td>
                   </tr>
                 ))}
@@ -435,8 +443,11 @@ export function CalculadoraDeMacros({
             <Badge variant="outline" className="mr-2 align-middle">
               Estimativa
             </Badge>
-            Valores calculados a partir de tabelas de composição de alimentos.
-            Não substituem laudo laboratorial para rotulagem obrigatória.
+            Valores por 100 g da Tabela Brasileira de Composição de Alimentos
+            (TACO, 4ª edição — NEPA/UNICAMP). Itens sem equivalente na tabela
+            usam média de rótulos, indicada na lista. A ficha orienta o seu
+            cardápio, mas não substitui laudo laboratorial onde a rotulagem
+            obrigatória exigir.
           </p>
         </div>
       </aside>

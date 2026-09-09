@@ -3,7 +3,13 @@ import type { Ingrediente } from "@/types/database";
 /** O que a calculadora precisa saber de um ingrediente. Valores por 100 g. */
 export type BaseNutricional = Pick<
   Ingrediente,
-  "kcal" | "proteina_g" | "carboidrato_g" | "gordura_g" | "preco_medio_kg"
+  | "kcal"
+  | "proteina_g"
+  | "carboidrato_g"
+  | "gordura_g"
+  | "fibra_g"
+  | "sodio_mg"
+  | "preco_medio_kg"
 >;
 
 export type ItemPesado = {
@@ -16,6 +22,9 @@ export type Totais = {
   proteina: number;
   carboidrato: number;
   gordura: number;
+  /** Fibra alimentar e sódio são obrigatórios na tabela nutricional (RDC 429/2020). */
+  fibra: number;
+  sodio: number;
   custo: number;
   pesoTotal: number;
 };
@@ -25,6 +34,8 @@ const ZERADO: Totais = {
   proteina: 0,
   carboidrato: 0,
   gordura: 0,
+  fibra: 0,
+  sodio: 0,
   custo: 0,
   pesoTotal: 0,
 };
@@ -45,6 +56,8 @@ export function somarTotais(itens: ItemPesado[]): Totais {
       carboidrato:
         acumulado.carboidrato + Number(item.base.carboidrato_g) * fator,
       gordura: acumulado.gordura + Number(item.base.gordura_g) * fator,
+      fibra: acumulado.fibra + Number(item.base.fibra_g) * fator,
+      sodio: acumulado.sodio + Number(item.base.sodio_mg) * fator,
       custo: acumulado.custo + (Number(item.base.preco_medio_kg) / 1000) * gramas,
       pesoTotal: acumulado.pesoTotal + gramas,
     };
@@ -60,6 +73,8 @@ export function dividirPorPorcoes(totais: Totais, porcoes: number): Totais {
     proteina: totais.proteina / divisor,
     carboidrato: totais.carboidrato / divisor,
     gordura: totais.gordura / divisor,
+    fibra: totais.fibra / divisor,
+    sodio: totais.sodio / divisor,
     custo: totais.custo / divisor,
     pesoTotal: totais.pesoTotal / divisor,
   };

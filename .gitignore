@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Cache da fonte externa da TACO — baixado pelo script, nao versionado
+scripts/.cache/

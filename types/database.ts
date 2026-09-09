@@ -26,6 +26,8 @@ export type Database = {
           carboidrato_g: number
           categoria: string
           created_at: string
+          fibra_g: number
+          fonte: string
           gordura_g: number
           id: string
           kcal: number
@@ -33,11 +35,15 @@ export type Database = {
           preco_medio_kg: number
           proteina_g: number
           slug: string
+          sodio_mg: number
+          taco_id: number | null
         }
         Insert: {
           carboidrato_g: number
           categoria: string
           created_at?: string
+          fibra_g?: number
+          fonte?: string
           gordura_g: number
           id?: string
           kcal: number
@@ -45,11 +51,15 @@ export type Database = {
           preco_medio_kg?: number
           proteina_g: number
           slug: string
+          sodio_mg?: number
+          taco_id?: number | null
         }
         Update: {
           carboidrato_g?: number
           categoria?: string
           created_at?: string
+          fibra_g?: number
+          fonte?: string
           gordura_g?: number
           id?: string
           kcal?: number
@@ -57,6 +67,8 @@ export type Database = {
           preco_medio_kg?: number
           proteina_g?: number
           slug?: string
+          sodio_mg?: number
+          taco_id?: number | null
         }
         Relationships: []
       }
