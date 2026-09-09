@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { analisarMarkdown, type Trecho } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +31,21 @@ function Inline({ trechos }: { trechos: Trecho[] }) {
                 {trecho.valor}
               </code>
             );
+          case "link": {
+            const externo = trecho.destino.startsWith("https://");
+            return (
+              <Link
+                key={chave}
+                href={trecho.destino}
+                {...(externo
+                  ? { target: "_blank", rel: "noopener noreferrer" }
+                  : {})}
+                className="rounded-sm font-medium text-primary underline decoration-border-strong decoration-1 underline-offset-4 transition-colors duration-150 hover:decoration-primary"
+              >
+                {trecho.valor}
+              </Link>
+            );
+          }
           default:
             return <span key={chave}>{trecho.valor}</span>;
         }

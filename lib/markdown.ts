@@ -1,6 +1,7 @@
 /**
  * Analisador de um subconjunto de Markdown, suficiente para o conteúdo das
- * aulas: títulos, parágrafos, listas, citação, negrito, itálico e código.
+ * aulas: títulos, parágrafos, listas, citação, negrito, itálico, código e
+ * links.
  *
  * A saída é uma árvore de blocos — quem renderiza monta os elementos React.
  * Nada de HTML cru, então não existe superfície para injeção.
@@ -10,7 +11,8 @@ export type Trecho =
   | { tipo: "texto"; valor: string }
   | { tipo: "forte"; valor: string }
   | { tipo: "enfase"; valor: string }
-  | { tipo: "codigo"; valor: string };
+  | { tipo: "codigo"; valor: string }
+  | { tipo: "link"; valor: string; destino: string };
 
 export type Bloco =
   | { tipo: "titulo"; nivel: 2 | 3; conteudo: Trecho[] }
@@ -18,12 +20,38 @@ export type Bloco =
   | { tipo: "citacao"; conteudo: Trecho[] }
   | { tipo: "lista"; ordenada: boolean; itens: Trecho[][] };
 
-const PADRAO_INLINE = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
+const PADRAO_INLINE =
+  /(\[[^\]]+\]\([^)\s]+\)|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
+
+const PADRAO_LINK = /^\[([^\]]+)\]\(([^)\s]+)\)$/;
+
+/**
+ * Só rota interna do próprio app ou https.
+ *
+ * O conteúdo hoje é nosso, mas o destino vira `href` direto: aceitar esquema
+ * livre abriria a porta para `javascript:` no dia em que uma aula ou receita
+ * puder ser escrita por alguém de fora.
+ */
+function destinoSeguro(bruto: string): string | null {
+  if (bruto.startsWith("//")) return null;
+  if (bruto.startsWith("/")) return bruto;
+  if (bruto.startsWith("https://")) return bruto;
+  return null;
+}
 
 export function analisarInline(texto: string): Trecho[] {
   const partes = texto.split(PADRAO_INLINE).filter((parte) => parte !== "");
 
   return partes.map((parte): Trecho => {
+    const link = PADRAO_LINK.exec(parte);
+    if (link) {
+      const destino = destinoSeguro(link[2]);
+      // Destino recusado vira texto puro: melhor perder o link do que renderizar
+      // um href que não deveria existir.
+      return destino
+        ? { tipo: "link", valor: link[1], destino }
+        : { tipo: "texto", valor: link[1] };
+    }
     if (parte.startsWith("**") && parte.endsWith("**")) {
       return { tipo: "forte", valor: parte.slice(2, -2) };
     }
