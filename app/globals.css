@@ -40,6 +40,12 @@
   /* Painel de marca (lateral do login). Fica escuro nos dois temas: usar
      --primary aqui invertia o painel no dark, virando verde claro com texto
      quase preto. */
+  /* Cores medidas no arquivo do logotipo, para a arte da marca não depender
+     de aproximação minha. Usadas nas capas de receita e no que for assinatura
+     visual — o tema do app continua nos tokens acima. */
+  --marca-verde: #0a5541;
+  --marca-laranja: #ff7421;
+
   --brand-panel: #123b2e;
   --brand-panel-foreground: #f6faf5;
   --brand-panel-muted: #a8bfb4;

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import {
   ArrowRight,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { Logo } from "@/components/brand/logo";
+import { CapaDaReceita } from "@/components/receitas/capa";
 import { DsBloco, DsSection } from "@/components/design-system/section";
 import { GrupoDeSwatches } from "@/components/design-system/swatch";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -63,6 +65,7 @@ const INDICE = [
   { id: "superficies", numero: "06", titulo: "Superfícies" },
   { id: "sinalizacao", numero: "07", titulo: "Sinalização" },
   { id: "estados", numero: "08", titulo: "Estados" },
+  { id: "marca", numero: "09", titulo: "Marca" },
 ];
 
 export default function DesignSystemPage() {
@@ -645,6 +648,89 @@ export default function DesignSystemPage() {
                         Quarto
                       </a>
                     </div>
+                  </div>
+                </DsBloco>
+              </div>
+            </DsSection>
+
+            <DsSection
+              id="marca"
+              numero="09"
+              titulo="Marca e capas de receita"
+              descricao="O logotipo aplicado e a capa gerada para receita sem foto, com a variação por prato e por objetivo."
+            >
+              <div className="space-y-10">
+                <DsBloco rotulo="Logotipo">
+                  <div className="flex flex-wrap items-center gap-8">
+                    <div className="rounded-lg border border-border bg-surface p-6">
+                      <Image
+                        src="/marca/logotipo.png"
+                        alt="MarmitaPro"
+                        width={920}
+                        height={160}
+                        className="h-9 w-auto"
+                      />
+                    </div>
+                    <div className="rounded-lg border border-border bg-brand-panel p-6">
+                      <Image
+                        src="/marca/logotipo-claro.png"
+                        alt="MarmitaPro sobre fundo escuro"
+                        width={920}
+                        height={160}
+                        className="h-9 w-auto"
+                      />
+                    </div>
+                    <div className="rounded-lg border border-border bg-surface p-4">
+                      <Image
+                        src="/marca/simbolo.png"
+                        alt="Símbolo"
+                        width={512}
+                        height={512}
+                        className="size-12"
+                      />
+                    </div>
+                  </div>
+                </DsBloco>
+
+                <DsBloco rotulo="Capa sem foto, por objetivo">
+                  <div className="grid gap-5 sm:grid-cols-3">
+                    {(
+                      [
+                        ["Strogonoff fit de frango", "rica_proteina"],
+                        ["Salmão com purê de couve-flor", "low_carb"],
+                        ["Fígado acebolado com arroz e couve", "economica"],
+                      ] as const
+                    ).map(([nome, objetivo]) => (
+                      <div
+                        key={nome}
+                        className="overflow-hidden rounded-xl border border-border"
+                      >
+                        <CapaDaReceita
+                          nome={nome}
+                          objetivo={objetivo}
+                          className="aspect-[16/9] w-full"
+                        />
+                        <p className="t-small px-4 py-3">{nome}</p>
+                      </div>
+                    ))}
+                  </div>
+                </DsBloco>
+
+                <DsBloco rotulo="Variação entre pratos do mesmo objetivo">
+                  <div className="grid gap-4 sm:grid-cols-4">
+                    {[
+                      "Bife acebolado com arroz integral e vagem",
+                      "Almôndegas ao sugo com macarrão integral",
+                      "Merluza ao forno com crosta de castanha",
+                      "Cação em posta com cuscuz e vinagrete morno",
+                    ].map((nome) => (
+                      <CapaDaReceita
+                        key={nome}
+                        nome={nome}
+                        objetivo="rica_proteina"
+                        className="aspect-[4/3] w-full rounded-lg"
+                      />
+                    ))}
                   </div>
                 </DsBloco>
               </div>
