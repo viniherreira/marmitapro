@@ -46,3 +46,17 @@ export const FOTOS = {
   // abobrinha e arroz. Vale o que está na imagem.
   "almondegas.jpeg": "carne-moida-com-abobrinha-e-arroz",
 };
+
+/**
+ * Ajuste fino do enquadramento, por receita.
+ *
+ * O valor é o centro vertical do recorte como fração da altura da foto
+ * original. O padrão de 0,66 funciona para prato montado dentro da marmita,
+ * que é a maioria — mas prato alto, como a pilha de panqueca, sobe no quadro e
+ * precisa de um centro mais acima para não encostar na borda.
+ *
+ * Só entre aqui quem precisar: lista vazia é lista que ninguém mantém.
+ */
+export const AJUSTES = {
+  "panqueca-de-carne-com-molho": 0.58,
+};

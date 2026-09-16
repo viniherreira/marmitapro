@@ -7,10 +7,9 @@
  * quase 80 MB ao repositório e faria cada visitante baixar um arquivo de foto
  * profissional para ver um cartão de 400 px.
  *
- * Aqui eles viram WebP de ~1400 px na proporção 4:3. O corte é por saliência
- * (`attention` do sharp), porque as fotos são verticais e um corte central
- * cego cortaria justamente a comida — que nessas imagens fica na metade de
- * baixo do quadro.
+ * Aqui eles viram WebP de 1400 px na mesma proporção em que as capas aparecem
+ * na tela, para o layout não precisar cortar de novo por cima do corte que
+ * este script já fez.
  */
 
 import {
@@ -25,13 +24,23 @@ import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 import { createClient } from "@supabase/supabase-js";
 
-import { FOTOS } from "./curadoria-fotos.mjs";
+import { AJUSTES, FOTOS } from "./curadoria-fotos.mjs";
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ORIGENS = process.argv[2] ?? "C:/Users/mauro/Downloads";
 const DESTINO = join(RAIZ, "public", "receitas");
 
-/** 4:3 atende as duas telas: a lista corta de leve, o detalhe encaixa. */
+/**
+ * 4:3, e a mesma proporcao vale nas duas telas que mostram a capa.
+ *
+ * Nao e escolha de gosto, e aritmetica: as fotos sao verticais (3:4), entao
+ * uma faixa 16:9 captura so 42% da altura e a marmita nao cabe nela. Em 3:2
+ * sao 50%, ainda apertado. Em 4:3 sao 56%, que e o suficiente para o
+ * recipiente inteiro aparecer.
+ *
+ * Gravar numa proporcao e exibir em outra corta duas vezes — foi o que deixou
+ * as capas com cara de zoom na primeira versao.
+ */
 const LARGURA = 1400;
 const ALTURA = 1050;
 
@@ -45,10 +54,10 @@ const ALTURA = 1050;
  */
 const CENTRO_VERTICAL = 0.66;
 
-async function recortar(entrada, saida) {
+async function recortar(entrada, saida, centroVertical) {
   const { width, height } = await sharp(entrada).metadata();
 
-  // Maior janela 4:3 que cabe na imagem.
+  // Maior janela na proporção final que cabe dentro da foto original.
   let larguraJanela = width;
   let alturaJanela = Math.round((width * ALTURA) / LARGURA);
   if (alturaJanela > height) {
@@ -56,7 +65,7 @@ async function recortar(entrada, saida) {
     larguraJanela = Math.round((height * LARGURA) / ALTURA);
   }
 
-  const topoIdeal = Math.round(height * CENTRO_VERTICAL - alturaJanela / 2);
+  const topoIdeal = Math.round(height * centroVertical - alturaJanela / 2);
   const topo = Math.max(0, Math.min(topoIdeal, height - alturaJanela));
   const esquerda = Math.round((width - larguraJanela) / 2);
 
@@ -115,7 +124,7 @@ async function main() {
     const entrada = join(ORIGENS, achado);
     const saida = join(DESTINO, `${slug}.webp`);
 
-    await recortar(entrada, saida);
+    await recortar(entrada, saida, AJUSTES[slug] ?? CENTRO_VERTICAL);
 
     processados.push({
       slug,

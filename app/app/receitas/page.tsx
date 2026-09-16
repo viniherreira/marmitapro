@@ -79,7 +79,7 @@ export default async function ReceitasPage({
                     objetivo={receita.objetivo}
                     imagemUrl={receita.imagem_url}
                     prioridade={indice < 3}
-                    className="aspect-[16/9] w-full"
+                    className="aspect-[4/3] w-full"
                   />
 
                   <div className="flex flex-1 flex-col p-5">
