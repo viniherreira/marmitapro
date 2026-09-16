@@ -20,8 +20,8 @@ export default function AuthLayout({
     <div className="grid min-h-dvh lg:grid-cols-2">
       {/* Painel de marca — some no mobile para não empurrar o formulário */}
       <aside className="relative hidden flex-col justify-between bg-brand-panel p-10 text-brand-panel-foreground lg:flex xl:p-14">
-        <Link href="/" className="rounded-sm text-[15px] text-brand-panel-foreground">
-          <Logo markClassName="text-accent" />
+        <Link href="/" className="inline-flex rounded-sm">
+          <Logo variante="clara" className="h-8" />
         </Link>
 
         <div className="max-w-md">
@@ -55,7 +55,7 @@ export default function AuthLayout({
 
       <main className="texture-paper flex flex-col bg-background">
         <div className="flex items-center justify-between px-5 py-5 sm:px-8 lg:hidden">
-          <Link href="/" className="rounded-sm text-[15px]">
+          <Link href="/" className="inline-flex rounded-sm">
             <Logo />
           </Link>
           <Link

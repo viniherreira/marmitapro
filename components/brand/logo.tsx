@@ -1,64 +1,112 @@
+import Image from "next/image";
+
 import { cn } from "@/lib/utils";
 
 /**
- * Marca: uma bandeja dividida vista de cima — a marmita reduzida a
- * três traços. Desenhada em currentColor para servir em qualquer fundo.
+ * Logotipo do MarmitaPRO.
+ *
+ * São dois arquivos, não um com filtro: o logotipo tem verde escuro, que
+ * desaparece sobre fundo escuro. A variante clara troca o verde por um tom
+ * quase branco e mantém o laranja, que funciona nos dois fundos.
+ *
+ * A troca é por CSS, com os dois `<Image>` no HTML e um escondido conforme o
+ * tema. Decidir isso em JavaScript faria o logotipo piscar na cor errada até
+ * a hidratação — logo errado no primeiro quadro é a pior primeira impressão
+ * que um produto pode dar.
  */
-export function LogoMark({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-      className={cn("size-6", className)}
-    >
-      <rect
-        x="2.25"
-        y="4.25"
-        width="19.5"
-        height="15.5"
-        rx="3.75"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <path
-        d="M13.5 4.75v14.5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      <path
-        d="M13.5 12h8.25"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      <circle cx="7.9" cy="12" r="2.35" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  );
-}
+
+const LARGURA_ORIGINAL = 920;
+const ALTURA_ORIGINAL = 160;
 
 export function Logo({
   className,
-  markClassName,
+  variante = "auto",
+}: {
+  /** Altura do logotipo. Use utilitários de altura: `h-7`, `h-9`. */
+  className?: string;
+  /** `clara` força a versão para fundo escuro, como o painel do login. */
+  variante?: "auto" | "clara";
+}) {
+  const dimensoes = cn("h-7 w-auto", className);
+
+  if (variante === "clara") {
+    return (
+      <Image
+        src="/marca/logotipo-claro.png"
+        alt="MarmitaPRO"
+        width={LARGURA_ORIGINAL}
+        height={ALTURA_ORIGINAL}
+        priority
+        className={dimensoes}
+      />
+    );
+  }
+
+  return (
+    <>
+      <Image
+        src="/marca/logotipo.png"
+        alt="MarmitaPRO"
+        width={LARGURA_ORIGINAL}
+        height={ALTURA_ORIGINAL}
+        priority
+        className={cn(dimensoes, "dark:hidden")}
+      />
+      <Image
+        src="/marca/logotipo-claro.png"
+        alt=""
+        aria-hidden="true"
+        width={LARGURA_ORIGINAL}
+        height={ALTURA_ORIGINAL}
+        priority
+        className={cn(dimensoes, "hidden dark:block")}
+      />
+    </>
+  );
+}
+
+/**
+ * Só o símbolo, para espaço apertado — barra inferior do celular, avatar,
+ * qualquer lugar onde o nome por extenso não caberia legível.
+ */
+export function LogoMark({
+  className,
+  variante = "auto",
 }: {
   className?: string;
-  markClassName?: string;
+  variante?: "auto" | "clara";
 }) {
+  const dimensoes = cn("size-7", className);
+
+  if (variante === "clara") {
+    return (
+      <Image
+        src="/marca/simbolo-claro.png"
+        alt="MarmitaPRO"
+        width={512}
+        height={512}
+        className={dimensoes}
+      />
+    );
+  }
+
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-2 text-foreground",
-        className
-      )}
-    >
-      <LogoMark className={cn("size-6 text-primary", markClassName)} />
-      <span className="flex items-baseline gap-[3px]">
-        <span className="font-display text-[1.15em] leading-none">Marmita</span>
-        <span className="text-[0.72em] font-semibold uppercase leading-none tracking-[0.14em] text-muted">
-          Pro
-        </span>
-      </span>
-    </span>
+    <>
+      <Image
+        src="/marca/simbolo.png"
+        alt="MarmitaPRO"
+        width={512}
+        height={512}
+        className={cn(dimensoes, "dark:hidden")}
+      />
+      <Image
+        src="/marca/simbolo-claro.png"
+        alt=""
+        aria-hidden="true"
+        width={512}
+        height={512}
+        className={cn(dimensoes, "hidden dark:block")}
+      />
+    </>
   );
 }

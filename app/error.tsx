@@ -18,7 +18,7 @@ export default function Erro({
   return (
     <div className="texture-paper flex min-h-dvh flex-col items-center justify-center bg-background px-5">
       <div className="w-full max-w-lg">
-        <Logo className="text-[15px]" />
+        <Logo className="h-7" />
 
         <p className="t-eyebrow mt-12">Algo quebrou</p>
         <h1 className="t-h1 mt-4">Não foi possível carregar esta tela.</h1>

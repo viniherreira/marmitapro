@@ -27,7 +27,7 @@ export function ConfiguracaoPendente({
       }
     >
       <div className={compacto ? "w-full" : "w-full max-w-xl"}>
-        {compacto ? null : <Logo className="text-[15px]" />}
+        {compacto ? null : <Logo className="h-7" />}
 
         <div
           className={cn(

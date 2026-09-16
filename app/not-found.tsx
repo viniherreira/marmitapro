@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 export default function NaoEncontrada() {
   return (
     <div className="texture-paper flex min-h-dvh flex-col items-center justify-center bg-background px-5 text-center">
-      <Logo className="text-[15px]" />
+      <Logo className="h-7" />
       <p className="t-eyebrow mt-12">Erro 404</p>
       <h1 className="t-h1 mt-4 max-w-lg">
         Essa página saiu do cardápio.

@@ -78,7 +78,7 @@ export default function DesignSystemPage() {
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-[1180px] items-center justify-between gap-4 px-5 sm:px-8">
           <div className="flex items-center gap-3">
-            <Logo className="text-[15px]" />
+            <Logo className="h-7" />
             <span className="hidden h-4 w-px bg-border sm:block" />
             <span className="t-eyebrow hidden sm:block">Design System</span>
           </div>

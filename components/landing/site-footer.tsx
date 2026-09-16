@@ -10,7 +10,7 @@ export function SiteFooter() {
       <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8">
         <div className="grid gap-12 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
           <div>
-            <Logo className="text-[15px]" />
+            <Logo className="h-7" />
             <p className="t-small mt-4 max-w-xs text-muted">
               A trilha e as ferramentas para montar e operar um negócio de
               marmitas fit no Brasil.

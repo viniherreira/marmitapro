@@ -39,7 +39,7 @@ export default async function AppLayout({
 
       <div className="lg:pl-64">
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/90 px-5 backdrop-blur-md lg:hidden">
-          <Link href="/app" className="rounded-sm text-[15px]">
+          <Link href="/app" className="inline-flex rounded-sm">
             <Logo />
           </Link>
           <div className="flex items-center gap-3">

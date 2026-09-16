@@ -30,7 +30,7 @@ export default async function OnboardingPage() {
   return (
     <div className="texture-paper flex min-h-dvh flex-col bg-background">
       <header className="flex items-center justify-between px-5 py-5 sm:px-8">
-        <Link href="/" className="rounded-sm text-[15px]">
+        <Link href="/" className="inline-flex rounded-sm">
           <Logo />
         </Link>
         <ThemeToggle />

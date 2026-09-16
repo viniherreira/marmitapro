@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default function OfflinePage() {
   return (
     <div className="texture-paper flex min-h-dvh flex-col items-center justify-center bg-background px-5 text-center">
-      <Logo className="text-[15px]" />
+      <Logo className="h-7" />
 
       <span className="mt-12 grid size-12 place-items-center rounded-xl border border-border bg-surface text-muted">
         <WifiOff className="size-5" aria-hidden="true" />

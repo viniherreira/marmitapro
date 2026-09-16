@@ -27,7 +27,7 @@ export function Sidebar({
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-surface lg:flex">
       <div className="flex h-16 items-center border-b border-border px-5">
-        <Link href="/app" className="rounded-sm text-[15px]">
+        <Link href="/app" className="inline-flex rounded-sm">
           <Logo />
         </Link>
       </div>
