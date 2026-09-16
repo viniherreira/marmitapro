@@ -21,6 +21,7 @@ export const FOTOS = {
   Shredded_chicken_and_sweet_potato: "frango-desfiado-com-pure-de-batata-doce",
   Chicken_meal_prep_delivery_conta: "frango-grelhado-arroz-integral-brocolis",
   Turkey_meal_prep: "peito-de-peru-com-quinoa",
+  Tilapia_fillet: "tilapia-ao-forno-com-legumes",
 
   // --- low carb ------------------------------------------------------------
   Shrimp_in_pumpkin: "camarao-na-moranga",
@@ -51,12 +52,12 @@ export const FOTOS = {
  * Ajuste fino do enquadramento, por receita.
  *
  * O valor é o centro vertical do recorte como fração da altura da foto
- * original. O padrão de 0,66 funciona para prato montado dentro da marmita,
+ * original. O padrão de 0,56 funciona para prato montado dentro da marmita,
  * que é a maioria — mas prato alto, como a pilha de panqueca, sobe no quadro e
  * precisa de um centro mais acima para não encostar na borda.
  *
  * Só entre aqui quem precisar: lista vazia é lista que ninguém mantém.
  */
 export const AJUSTES = {
-  "panqueca-de-carne-com-molho": 0.58,
+  "panqueca-de-carne-com-molho": 0.5,
 };

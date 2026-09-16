@@ -51,8 +51,12 @@ const ALTURA = 1050;
  * bancada clara, deixa vazio em cima e decepa a marmita embaixo. Nessas fotos
  * verticais o prato está sempre no terço inferior, então a posição fixa
  * enquadra melhor que o algoritmo.
+ *
+ * Era 0,66 e cortava o alto da marmita em metade das capas, sobrando bancada
+ * vazia embaixo. Em 0,56 a janela vai de 28% a 84% da altura, que pega o
+ * recipiente inteiro com respiro.
  */
-const CENTRO_VERTICAL = 0.66;
+const CENTRO_VERTICAL = 0.56;
 
 async function recortar(entrada, saida, centroVertical) {
   const { width, height } = await sharp(entrada).metadata();

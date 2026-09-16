@@ -161,13 +161,28 @@ async function carregarItens(
   return mapa;
 }
 
+/**
+ * Fotos versionadas em public/receitas que ainda podem não estar gravadas em
+ * `imagem_url` no banco de algum ambiente. O arquivo chega com o deploy, mas
+ * o campo depende de rodar a migração ou o script de fotos — sem esta rede, a
+ * receita aparece com a capa de marca mesmo tendo foto publicada.
+ */
+const FOTOS_SEM_REGISTRO_GARANTIDO = new Set(["tilapia-ao-forno-com-legumes"]);
+
 function montarFicha(receita: Receita, itens: ItemDaReceita[]): ReceitaDaLista {
   const totais = somarTotais(
     itens.map((item) => ({ gramas: item.quantidade_g, base: item.ingrediente }))
   );
 
+  const imagem_url =
+    receita.imagem_url ??
+    (FOTOS_SEM_REGISTRO_GARANTIDO.has(receita.slug)
+      ? `/receitas/${receita.slug}.webp`
+      : null);
+
   return {
     ...receita,
+    imagem_url,
     totais,
     porPorcao: dividirPorPorcoes(totais, receita.rendimento_porcoes),
   };
