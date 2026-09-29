@@ -224,3 +224,78 @@ export const assinaturaCartaoSchema = assinaturaPixSchema.extend({
 });
 
 export type AssinaturaCartaoInput = z.infer<typeof assinaturaCartaoSchema>;
+
+// Pedidos -------------------------------------------------------------------
+
+const textoOpcional = (max: number, rotulo: string) =>
+  z
+    .string()
+    .trim()
+    .max(max, `${rotulo} muito longo.`)
+    .optional()
+    .transform((v) => (v ? v : null));
+
+export const situacaoPedidoSchema = z.enum(
+  ["recebido", "em_producao", "pronto", "entregue", "cancelado"],
+  { error: "Situação inválida." }
+);
+
+/**
+ * O cliente vem de um jeito ou de outro: o id de alguém já cadastrado, ou os
+ * dados de um cliente novo, criado junto com o pedido. Anotar o pedido não
+ * pode exigir passar antes por uma tela de cadastro.
+ */
+const clienteDoPedidoSchema = z.union([
+  z.object({ id: z.uuid("Cliente inválido.") }),
+  z.object({
+    nome: z
+      .string()
+      .trim()
+      .min(2, "Informe o nome do cliente.")
+      .max(120, "Nome muito longo."),
+    telefone: textoOpcional(30, "Telefone"),
+    endereco: textoOpcional(300, "Endereço"),
+  }),
+]);
+
+export const itemDoPedidoSchema = z.object({
+  descricao: z
+    .string()
+    .trim()
+    .min(2, "Diga qual é a marmita.")
+    .max(150, "Descrição muito longa."),
+  quantidade: z
+    .number({ error: "Informe a quantidade." })
+    .int("Use um número inteiro.")
+    .min(1, "Pelo menos 1.")
+    .max(1000, "Máximo de 1.000 por item."),
+  preco_unitario: z
+    .number({ error: "Informe o preço." })
+    .min(0, "Não pode ser negativo.")
+    .max(10000, "Preço acima do limite aceito."),
+});
+
+export const pedidoSchema = z.object({
+  id: z.uuid().optional(),
+  cliente: clienteDoPedidoSchema,
+  entrega_data: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data de entrega."),
+  entrega_hora: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Hora inválida.")
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+  observacoes: textoOpcional(1000, "Observação"),
+  itens: z
+    .array(itemDoPedidoSchema)
+    .min(1, "Adicione pelo menos uma marmita.")
+    .max(30, "Máximo de 30 itens por pedido."),
+});
+
+export type PedidoInput = z.input<typeof pedidoSchema>;
+
+export const mudarSituacaoSchema = z.object({
+  id: z.uuid("Pedido inválido."),
+  situacao: situacaoPedidoSchema,
+});

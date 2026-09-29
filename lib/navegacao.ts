@@ -50,6 +50,12 @@ export const NAVEGACAO_APP: ItemDeNavegacao[] = [
     icone: BookOpen,
   },
   {
+    href: "/app/pedidos",
+    rotulo: "Pedidos",
+    rotuloCurto: "Pedidos",
+    icone: ClipboardList,
+  },
+  {
     href: "/app/comunidade",
     rotulo: "Comunidade",
     rotuloCurto: "Comunidade",
@@ -63,24 +69,21 @@ export const NAVEGACAO_APP: ItemDeNavegacao[] = [
   },
 ];
 
-/** Rotas já reservadas para a fase 2. Aparecem na sidebar, marcadas. */
-export const NAVEGACAO_FASE_2: ItemDeNavegacao[] = [
-  {
-    href: "/app/pedidos",
-    rotulo: "Pedidos",
-    rotuloCurto: "Pedidos",
-    icone: ClipboardList,
-    faseDois: true,
-  },
-];
+/**
+ * Rotas reservadas para o que ainda vem. Aparecem na sidebar sob "Em breve";
+ * com a lista vazia, a seção some.
+ */
+export const NAVEGACAO_FASE_2: ItemDeNavegacao[] = [];
 
 /**
  * Itens da barra inferior no mobile — cinco no máximo, por conforto de toque.
- * A comunidade fica de fora: é visita ocasional, e ela tem entrada própria no
- * painel, que é a primeira tela de quem abre o app no celular.
+ * Comunidade, assinatura e pedidos ficam de fora: as três têm entrada própria
+ * no painel, que é a primeira tela de quem abre o app no celular.
  */
+const FORA_DA_BARRA = new Set(["/app/comunidade", "/app/assinatura", "/app/pedidos"]);
+
 export const NAVEGACAO_MOBILE: ItemDeNavegacao[] = NAVEGACAO_APP.filter(
-  (item) => item.href !== "/app/comunidade" && item.href !== "/app/assinatura"
+  (item) => !FORA_DA_BARRA.has(item.href)
 );
 
 export function rotaAtiva(pathname: string, href: string): boolean {

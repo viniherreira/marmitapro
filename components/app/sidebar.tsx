@@ -58,24 +58,28 @@ export function Sidebar({
           })}
         </ul>
 
-        <p className="t-eyebrow mt-8 px-3">Em breve</p>
-        <ul className="mt-3 space-y-0.5">
-          {NAVEGACAO_FASE_2.map((item) => {
-            const Icone = item.icone;
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[0.9375rem] text-muted transition-colors duration-150 hover:bg-surface-hover"
-                >
-                  <Icone className="size-4 shrink-0" aria-hidden="true" />
-                  <span className="flex-1">{item.rotulo}</span>
-                  <Badge variant="outline">Fase 2</Badge>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        {NAVEGACAO_FASE_2.length > 0 ? (
+          <>
+            <p className="t-eyebrow mt-8 px-3">Em breve</p>
+            <ul className="mt-3 space-y-0.5">
+              {NAVEGACAO_FASE_2.map((item) => {
+                const Icone = item.icone;
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[0.9375rem] text-muted transition-colors duration-150 hover:bg-surface-hover"
+                    >
+                      <Icone className="size-4 shrink-0" aria-hidden="true" />
+                      <span className="flex-1">{item.rotulo}</span>
+                      <Badge variant="outline">Fase 2</Badge>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        ) : null}
       </nav>
 
       <div className="space-y-4 border-t border-border p-4">

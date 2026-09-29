@@ -14,32 +14,29 @@ receitas, onboarding, autenticação e PWA instalável.
 
 ## Fase 2
 
-### 1. CRM de pedidos
+### 1. CRM de pedidos — **núcleo feito**
 
-O módulo que transforma o app de ferramenta de cálculo em ferramenta de
-operação. É o item de maior valor percebido pelo público que já vende.
+A aba `/app/pedidos` é o caderno de pedidos de quem vende: cliente, marmitas,
+dia e hora de entrega, e a situação de cada pedido
+(`recebido → em produção → pronto → entregue`, ou `cancelado`). A semana vem
+somada — pedidos, marmitas, faturamento — e a produção sai agrupada por
+prato. Cliente novo é criado no próprio pedido, o preço de um prato já vendido
+entra sozinho, e o telefone vira atalho para o WhatsApp. Faz parte da
+assinatura, com o mesmo bloqueio suave das calculadoras.
 
-**Escopo**
+Tabelas: `customers`, `orders`, `order_items`, com o enum `situacao_pedido`.
 
-- Cadastro de cliente com endereço, telefone e preferências
-- Pedido com itens, valor, data de entrega e status
-  (`recebido → em produção → pronto → entregue → cancelado`)
+Fica para depois:
+
+- Tela de clientes: editar telefone e endereço, ver o histórico de cada um
 - Janela de pedido semanal, com fechamento automático em dia e hora definidos
-- Lista de produção do dia: soma das receitas vendidas em gramas por ingrediente
-- Lista de compra derivada da lista de produção, com a folga configurável
-- Plano semanal (assinatura) com renovação e aviso de vencimento
-
-**O que já existe**
-
-- As rotas `/app/pedidos` e a entrada na navegação, marcadas como fase 2
-- `profiles` como âncora de propriedade para as novas tabelas
-- `recipes` e `recipe_ingredients` já permitem calcular a lista de produção a
-  partir do que foi vendido
-
-**Tabelas a criar**
-
-`customers`, `orders`, `order_items`, `delivery_routes`, `subscriptions`.
-Todas com `profile_id` e RLS no mesmo padrão das tabelas atuais.
+- Lista de compra: ligar cada item à receita e somar os ingredientes em
+  gramas, com a folga configurável. `order_items.recipe_id` já guarda o
+  vínculo quando o nome bate com uma receita do banco
+- Plano semanal do cliente final, com renovação e aviso de vencimento. **Não
+  pode se chamar `subscriptions`**: esse nome já é a assinatura do MarmitaPRO
+  cobrada pelo Asaas. Algo como `planos_de_clientes`
+- `delivery_routes`, para organizar a ordem de entrega
 
 ---
 

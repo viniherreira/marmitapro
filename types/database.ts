@@ -48,6 +48,47 @@ export type Database = {
         }
         Relationships: []
       }
+      customers: {
+        Row: {
+          created_at: string
+          endereco: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          profile_id: string
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          endereco?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          profile_id: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          endereco?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          profile_id?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingredients: {
         Row: {
           carboidrato_g: number
@@ -248,6 +289,105 @@ export type Database = {
             foreignKeyName: "onboarding_answers_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_items: {
+        Row: {
+          descricao: string
+          id: string
+          ordem: number
+          order_id: string
+          preco_unitario: number
+          quantidade: number
+          recipe_id: string | null
+        }
+        Insert: {
+          descricao: string
+          id?: string
+          ordem?: number
+          order_id: string
+          preco_unitario: number
+          quantidade: number
+          recipe_id?: string | null
+        }
+        Update: {
+          descricao?: string
+          id?: string
+          ordem?: number
+          order_id?: string
+          preco_unitario?: number
+          quantidade?: number
+          recipe_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          created_at: string
+          customer_id: string
+          entrega_data: string
+          entrega_hora: string | null
+          id: string
+          observacoes: string | null
+          profile_id: string
+          situacao: Database["public"]["Enums"]["situacao_pedido"]
+          updated_at: string
+          valor_total: number
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          entrega_data: string
+          entrega_hora?: string | null
+          id?: string
+          observacoes?: string | null
+          profile_id: string
+          situacao?: Database["public"]["Enums"]["situacao_pedido"]
+          updated_at?: string
+          valor_total?: number
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          entrega_data?: string
+          entrega_hora?: string | null
+          id?: string
+          observacoes?: string | null
+          profile_id?: string
+          situacao?: Database["public"]["Enums"]["situacao_pedido"]
+          updated_at?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -563,6 +703,12 @@ export type Database = {
         | "acima_de_6000"
       nivel_precificacao: "nao_sei" | "mais_ou_menos" | "sei_calcular"
       objetivo_receita: "low_carb" | "rica_proteina" | "economica"
+      situacao_pedido:
+        | "recebido"
+        | "em_producao"
+        | "pronto"
+        | "entregue"
+        | "cancelado"
       situacao_venda: "comecando" | "ja_vendo" | "escalando"
     }
     CompositeTypes: {
@@ -683,6 +829,13 @@ export const Constants = {
       ],
       nivel_precificacao: ["nao_sei", "mais_ou_menos", "sei_calcular"],
       objetivo_receita: ["low_carb", "rica_proteina", "economica"],
+      situacao_pedido: [
+        "recebido",
+        "em_producao",
+        "pronto",
+        "entregue",
+        "cancelado",
+      ],
       situacao_venda: ["comecando", "ja_vendo", "escalando"],
     },
   },
@@ -699,6 +852,7 @@ export type FaixaMetaRenda = Database["public"]["Enums"]["faixa_meta_renda"];
 export type NivelPrecificacao =
   Database["public"]["Enums"]["nivel_precificacao"];
 export type ObjetivoReceita = Database["public"]["Enums"]["objetivo_receita"];
+export type SituacaoPedido = Database["public"]["Enums"]["situacao_pedido"];
 
 /** Forma de cada item guardado em saved_calculations.itens (jsonb). */
 export type ItemDeCalculo = {
@@ -720,6 +874,9 @@ export type Receita = Tabelas<"recipes">;
 export type IngredienteDaReceita = Tabelas<"recipe_ingredients">;
 export type CenarioDePreco = Tabelas<"pricing_scenarios">;
 export type Assinatura = Tabelas<"subscriptions">;
+export type Cliente = Tabelas<"customers">;
+export type Pedido = Tabelas<"orders">;
+export type ItemDoPedido = Tabelas<"order_items">;
 
 /** Situação da assinatura, como gravada em subscriptions.status. */
 export type StatusDaAssinatura =

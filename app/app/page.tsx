@@ -4,6 +4,7 @@ import {
   ArrowRight,
   BookOpen,
   Calculator,
+  ClipboardList,
   MessageCircle,
   PlayCircle,
   Scale,
@@ -25,6 +26,12 @@ import { formatarInteiro, formatarMoeda } from "@/lib/format";
 export const metadata: Metadata = { title: "Painel" };
 
 const ATALHOS = [
+  {
+    href: "/app/pedidos",
+    icone: ClipboardList,
+    titulo: "Anotar um pedido",
+    texto: "Pedidos da semana e quanto produzir de cada prato.",
+  },
   {
     href: "/app/precificacao",
     icone: Calculator,
@@ -150,7 +157,7 @@ export default async function PainelPage() {
       {/* Atalhos ------------------------------------------------------ */}
       <section>
         <h2 className="t-eyebrow">Ferramentas do dia a dia</h2>
-        <div className="mt-5 grid gap-4 sm:grid-cols-3">
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {ATALHOS.map((atalho) => {
             const Icone = atalho.icone;
             return (
