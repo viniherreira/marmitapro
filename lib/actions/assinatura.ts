@@ -6,22 +6,27 @@ import { revalidatePath } from "next/cache";
 import type { ResultadoDeAcao } from "@/lib/actions/onboarding";
 import { garantirPerfil } from "@/lib/auth/perfil";
 import { assinaturaDaAcesso, assinaturaDoPerfil } from "@/lib/data/assinaturas";
+import { hojeNoBrasil, somarMeses } from "@/lib/datas";
 import { asaasConfigurado } from "@/lib/env";
 import {
   ErroDoAsaas,
   cancelarAssinatura,
+  cancelarAutorizacaoPixAutomatico,
   criarAssinatura,
+  criarAutorizacaoPixAutomatico,
   garantirClienteNoAsaas,
+  obterAutorizacaoPixAutomatico,
   obterCobranca,
   primeiraCobrancaDaAssinatura,
   qrCodeDaCobranca,
   type CobrancaAsaas,
 } from "@/lib/pagamentos/asaas";
-import { planoPorId } from "@/lib/pagamentos/planos";
+import { planoPorId, type PlanoDeCobranca } from "@/lib/pagamentos/planos";
 import {
-  assinaturaPorIdDoAsaas,
+  pagamentoInicialRecebido,
   registrarCancelamento,
   registrarPagamentoConfirmado,
+  vincularAssinaturaDoAsaas,
 } from "@/lib/pagamentos/sincronizar";
 import { clienteAdmin } from "@/lib/supabase/server";
 import {
@@ -38,11 +43,22 @@ export type QrCodeParaPagar = {
 };
 
 export type ResultadoDoPix =
-  | { ok: true; qrCode: QrCodeParaPagar }
+  | {
+      ok: true;
+      qrCode: QrCodeParaPagar;
+      /**
+       * Se o QR é de Pix Automático (paga agora e autoriza os próximos) ou
+       * de Pix comum (paga só este ciclo). A tela explica cada um de um jeito.
+       */
+      automatico: boolean;
+    }
   | { ok: false; erro: string };
 
 /** Cobranças que o Asaas considera pagas. */
 const PAGAS = new Set(["CONFIRMED", "RECEIVED", "RECEIVED_IN_CASH"]);
+
+/** Quanto tempo o QR do primeiro pagamento do Pix Automático vale. */
+const VALIDADE_DO_QR_EM_SEGUNDOS = 60 * 60;
 
 function mensagemDoZod(erros: { message: string }[]): string {
   return erros[0]?.message ?? "Dados inválidos.";
@@ -66,11 +82,6 @@ async function ipDoPagador(): Promise<string> {
   return primeiro || cabecalhos.get("x-real-ip") || "127.0.0.1";
 }
 
-/** Hoje em "YYYY-MM-DD": o Asaas cobra a primeira parcela na data que mandamos. */
-function hoje(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 type Titular = {
   nome: string;
   email: string;
@@ -80,67 +91,65 @@ type Titular = {
   numero_endereco: string;
 };
 
+type Metodo = "CREDIT_CARD" | "PIX" | "PIX_AUTOMATICO";
+
+function exigirPlano(id: string): PlanoDeCobranca {
+  const plano = planoPorId(id);
+  if (!plano) throw new Error("Plano desconhecido.");
+  return plano;
+}
+
+async function garantirCliente(perfilId: string, titular: Titular) {
+  return garantirClienteNoAsaas({
+    perfilId,
+    nome: titular.nome,
+    email: titular.email,
+    cpfCnpj: titular.cpf_cnpj,
+    telefone: titular.telefone,
+    cep: titular.cep,
+    numeroDoEndereco: titular.numero_endereco,
+  });
+}
+
 /**
- * Passo comum às duas formas de pagamento: garante o cliente no Asaas, cria a
- * assinatura e grava o espelho local.
+ * Grava o espelho local da assinatura, uma linha por perfil.
  *
- * O espelho é gravado com `upsert` por perfil: quem cancelou e volta, ou quem
- * teve uma tentativa pendente, reaproveita a mesma linha em vez de acumular
- * assinaturas mortas.
+ * Todos os campos de referência ao Asaas são escritos a cada gravação, mesmo
+ * os que ficam vazios: quem tentou o Pix Automático e depois assinou no
+ * cartão não pode carregar o id de uma autorização velha, que faria os avisos
+ * daquela autorização mexerem na assinatura nova.
  *
- * A assinatura anterior, se ainda viva no Asaas, é cancelada — mas só depois
- * que a nova foi criada. Na ordem inversa, um cartão recusado deixaria a
- * pessoa sem nenhuma das duas. E o período já pago (`acesso_ate`) passa para
- * a linha nova: trocar de cartão ou de plano não pode custar dias pagos.
+ * O período já pago (`acesso_ate`) passa para a linha nova: trocar de cartão,
+ * de plano ou de forma de pagamento não pode custar dias pagos.
  */
-async function abrirAssinatura(parametros: {
+async function gravarEspelho(campos: {
   perfilId: string;
-  plano: string;
-  metodo: "CREDIT_CARD" | "PIX";
-  titular: Titular;
-  extras: Record<string, unknown>;
+  plano: PlanoDeCobranca;
+  metodo: Metodo;
+  clienteId: string;
+  assinaturaId: string | null;
+  autorizacaoId: string | null;
+  proximoVencimento: string | null;
+  cartaoBandeira?: string | null;
+  cartaoFinal?: string | null;
   anterior: Assinatura | null;
 }): Promise<Assinatura> {
-  const plano = planoPorId(parametros.plano);
-  if (!plano) throw new Error("Plano desconhecido.");
-
-  const clienteId = await garantirClienteNoAsaas({
-    perfilId: parametros.perfilId,
-    nome: parametros.titular.nome,
-    email: parametros.titular.email,
-    cpfCnpj: parametros.titular.cpf_cnpj,
-    telefone: parametros.titular.telefone,
-    cep: parametros.titular.cep,
-    numeroDoEndereco: parametros.titular.numero_endereco,
-  });
-
-  const assinaturaRemota = await criarAssinatura({
-    customer: clienteId,
-    billingType: parametros.metodo,
-    value: plano.valor,
-    nextDueDate: hoje(),
-    cycle: plano.ciclo,
-    description: plano.descricaoNaFatura,
-    externalReference: parametros.perfilId,
-    ...parametros.extras,
-  });
-
-  const supabase = clienteAdmin();
-  const { data, error } = await supabase
+  const { data, error } = await clienteAdmin()
     .from("subscriptions")
     .upsert(
       {
-        profile_id: parametros.perfilId,
-        plano: plano.id,
-        metodo: parametros.metodo,
+        profile_id: campos.perfilId,
+        plano: campos.plano.id,
+        metodo: campos.metodo,
         status: "pendente",
-        valor: plano.valor,
-        asaas_customer_id: clienteId,
-        asaas_subscription_id: assinaturaRemota.id,
-        acesso_ate: parametros.anterior?.acesso_ate ?? null,
-        proximo_vencimento: assinaturaRemota.nextDueDate ?? null,
-        cartao_bandeira: assinaturaRemota.creditCard?.creditCardBrand ?? null,
-        cartao_final: assinaturaRemota.creditCard?.creditCardNumber ?? null,
+        valor: campos.plano.valor,
+        asaas_customer_id: campos.clienteId,
+        asaas_subscription_id: campos.assinaturaId,
+        asaas_authorization_id: campos.autorizacaoId,
+        acesso_ate: campos.anterior?.acesso_ate ?? null,
+        proximo_vencimento: campos.proximoVencimento,
+        cartao_bandeira: campos.cartaoBandeira ?? null,
+        cartao_final: campos.cartaoFinal ?? null,
       },
       { onConflict: "profile_id" }
     )
@@ -148,25 +157,172 @@ async function abrirAssinatura(parametros: {
     .single();
 
   if (error) throw new Error(`Falha ao gravar a assinatura: ${error.message}`);
-
-  const anterior = parametros.anterior;
-  if (
-    anterior &&
-    anterior.status !== "cancelada" &&
-    anterior.asaas_subscription_id !== assinaturaRemota.id
-  ) {
-    // Sem isto, um Pix gerado e não pago continuaria vivo no Asaas, gerando
-    // cobrança todo mês para quem já assinou de outro jeito.
-    await cancelarAssinatura(anterior.asaas_subscription_id).catch(() => {
-      // Já removida no Asaas (404) ou falha de rede: a nova assinatura está
-      // gravada, e não vale derrubar uma venda concluída por causa da antiga.
-    });
-  }
-
   return data;
 }
 
-/** A cobrança Pix ainda em aberto de uma tentativa anterior, se servir. */
+/**
+ * Encerra no Asaas tudo o que uma assinatura mantém vivo: a autorização do
+ * Pix Automático e a assinatura que gera as cobranças.
+ *
+ * Com `estrito`, qualquer falha sobe — é o cancelamento pedido pelo usuário,
+ * que precisa saber se deu certo. Sem ele, as falhas são engolidas: é a
+ * limpeza da tentativa anterior depois de uma venda nova concluída, e uma
+ * venda feita não pode ser desfeita por causa de uma sobra antiga, que pode
+ * já nem existir no Asaas.
+ */
+async function encerrarNoAsaas(
+  assinatura: Assinatura,
+  { estrito }: { estrito: boolean }
+): Promise<void> {
+  const tarefas: Promise<unknown>[] = [];
+  if (assinatura.asaas_authorization_id) {
+    tarefas.push(cancelarAutorizacaoPixAutomatico(assinatura.asaas_authorization_id));
+  }
+  if (assinatura.asaas_subscription_id) {
+    tarefas.push(cancelarAssinatura(assinatura.asaas_subscription_id));
+  }
+
+  const resultados = await Promise.allSettled(tarefas);
+  if (!estrito) return;
+
+  for (const resultado of resultados) {
+    if (resultado.status === "fulfilled") continue;
+    // 404: já não existe no Asaas, que é exatamente o que se queria.
+    if (resultado.reason instanceof ErroDoAsaas && resultado.reason.status === 404) {
+      continue;
+    }
+    throw resultado.reason;
+  }
+}
+
+/**
+ * Depois de gravar a assinatura nova, a anterior sai do Asaas. Sem isto, um
+ * Pix gerado e não pago continuaria vivo, gerando cobrança todo mês para quem
+ * já assinou de outro jeito.
+ */
+async function limparAnterior(anterior: Assinatura | null, nova: Assinatura) {
+  if (!anterior || anterior.status === "cancelada") return;
+
+  const mesma =
+    (anterior.asaas_subscription_id !== null &&
+      anterior.asaas_subscription_id === nova.asaas_subscription_id) ||
+    (anterior.asaas_authorization_id !== null &&
+      anterior.asaas_authorization_id === nova.asaas_authorization_id);
+  if (mesma) return;
+
+  await encerrarNoAsaas(anterior, { estrito: false });
+}
+
+/**
+ * Cartão e Pix comum: uma assinatura do Asaas com a primeira cobrança hoje,
+ * no horário de Brasília. Em UTC, depois das 21h a primeira cobrança seria
+ * marcada para amanhã, e o cartão não aprovaria na hora.
+ */
+async function abrirAssinatura(parametros: {
+  perfilId: string;
+  plano: PlanoDeCobranca;
+  metodo: "CREDIT_CARD" | "PIX";
+  clienteId: string;
+  extras: Record<string, unknown>;
+  anterior: Assinatura | null;
+}): Promise<Assinatura> {
+  const { plano } = parametros;
+
+  const remota = await criarAssinatura({
+    customer: parametros.clienteId,
+    billingType: parametros.metodo,
+    value: plano.valor,
+    nextDueDate: hojeNoBrasil(),
+    cycle: plano.ciclo,
+    description: plano.descricaoNaFatura,
+    externalReference: parametros.perfilId,
+    ...parametros.extras,
+  });
+
+  const assinatura = await gravarEspelho({
+    perfilId: parametros.perfilId,
+    plano,
+    metodo: parametros.metodo,
+    clienteId: parametros.clienteId,
+    assinaturaId: remota.id,
+    autorizacaoId: null,
+    proximoVencimento: remota.nextDueDate ?? null,
+    cartaoBandeira: remota.creditCard?.creditCardBrand,
+    cartaoFinal: remota.creditCard?.creditCardNumber,
+    anterior: parametros.anterior,
+  });
+
+  await limparAnterior(parametros.anterior, assinatura);
+  return assinatura;
+}
+
+/**
+ * Pix Automático: um QR Code que paga o primeiro ciclo e, no mesmo passo,
+ * autoriza no banco do cliente os débitos dos ciclos seguintes.
+ *
+ * A recorrência começa no ciclo seguinte (`startDate` = hoje + um ciclo),
+ * porque o primeiro já é pago pelo QR. Começar hoje arriscaria o Asaas gerar
+ * uma cobrança recorrente no mesmo dia do pagamento inicial, e o cliente
+ * pagaria duas vezes o mesmo mês.
+ */
+async function abrirPixAutomatico(parametros: {
+  perfilId: string;
+  plano: PlanoDeCobranca;
+  clienteId: string;
+  anterior: Assinatura | null;
+}): Promise<QrCodeParaPagar> {
+  const { plano } = parametros;
+  const inicioDaRecorrencia = somarMeses(hojeNoBrasil(), plano.mesesPorCiclo);
+
+  const autorizacao = await criarAutorizacaoPixAutomatico({
+    customerId: parametros.clienteId,
+    frequency: plano.frequenciaPix,
+    // Até 35 caracteres, e um por tentativa: quem tenta de novo ganha um
+    // contrato novo, e o da tentativa anterior é cancelado em limparAnterior.
+    contractId: `MP${parametros.perfilId.replace(/-/g, "").slice(0, 20)}${Date.now().toString(36)}`,
+    startDate: inicioDaRecorrencia,
+    value: plano.valor,
+    description: `MarmitaPRO plano ${plano.id}`,
+    primeiroPagamento: {
+      valor: plano.valor,
+      expiraEmSegundos: VALIDADE_DO_QR_EM_SEGUNDOS,
+      descricao: plano.descricaoNaFatura,
+    },
+  });
+
+  if (!autorizacao.encodedImage || !autorizacao.payload) {
+    // Autorização sem QR não tem como ser paga. Desfaz para não deixar uma
+    // autorização pendurada, e deixa o chamador cair no Pix comum.
+    await cancelarAutorizacaoPixAutomatico(autorizacao.id).catch(() => {});
+    throw new ErroDoAsaas(
+      "O Asaas não devolveu o QR Code do Pix Automático.",
+      502,
+      null
+    );
+  }
+
+  const assinatura = await gravarEspelho({
+    perfilId: parametros.perfilId,
+    plano,
+    metodo: "PIX_AUTOMATICO",
+    clienteId: parametros.clienteId,
+    assinaturaId: autorizacao.subscriptionId ?? null,
+    autorizacaoId: autorizacao.id,
+    proximoVencimento: inicioDaRecorrencia,
+    anterior: parametros.anterior,
+  });
+
+  await limparAnterior(parametros.anterior, assinatura);
+
+  return {
+    imagemBase64: autorizacao.encodedImage,
+    copiaECola: autorizacao.payload,
+    expiraEm: autorizacao.immediateQrCode?.expirationDate ?? null,
+    valor: plano.valor,
+  };
+}
+
+/** A cobrança Pix comum ainda em aberto de uma tentativa anterior, se servir. */
 async function pixEmAberto(
   assinatura: Assinatura | null,
   plano: string
@@ -175,7 +331,8 @@ async function pixEmAberto(
     !assinatura ||
     assinatura.status !== "pendente" ||
     assinatura.metodo !== "PIX" ||
-    assinatura.plano !== plano
+    assinatura.plano !== plano ||
+    !assinatura.asaas_subscription_id
   ) {
     return null;
   }
@@ -208,9 +365,10 @@ export async function assinarComCartao(
     return { ok: false, erro: mensagemDoZod(analise.error.issues) };
   }
 
-  const { plano, titular, cartao } = analise.data;
+  const { titular, cartao } = analise.data;
 
   try {
+    const plano = exigirPlano(analise.data.plano);
     const perfil = await garantirPerfil();
 
     const jaTem = await assinaturaDoPerfil(perfil.id);
@@ -222,7 +380,7 @@ export async function assinarComCartao(
       perfilId: perfil.id,
       plano,
       metodo: "CREDIT_CARD",
-      titular,
+      clienteId: await garantirCliente(perfil.id, titular),
       anterior: jaTem,
       extras: {
         creditCard: {
@@ -246,11 +404,13 @@ export async function assinarComCartao(
 
     // No cartão a aprovação é imediata. Conferir agora evita deixar quem
     // acabou de pagar esperando o webhook para ver a tela liberar.
-    const cobranca = await primeiraCobrancaDaAssinatura(
-      assinatura.asaas_subscription_id
-    );
-    if (cobranca && PAGAS.has(cobranca.status)) {
-      await registrarPagamentoConfirmado(assinatura);
+    if (assinatura.asaas_subscription_id) {
+      const cobranca = await primeiraCobrancaDaAssinatura(
+        assinatura.asaas_subscription_id
+      );
+      if (cobranca && PAGAS.has(cobranca.status)) {
+        await registrarPagamentoConfirmado(assinatura);
+      }
     }
 
     revalidatePath("/app", "layout");
@@ -261,8 +421,14 @@ export async function assinarComCartao(
 }
 
 /**
- * Assinatura no Pix. Devolve o QR Code da primeira cobrança para o usuário
- * pagar sem sair da tela.
+ * Assinatura no Pix. Tenta o Pix Automático e, se o Asaas recusar, cai no
+ * Pix comum.
+ *
+ * A recusa mais provável é de elegibilidade: o Pix Automático exige conta de
+ * Pessoa Jurídica com CNPJ ativo há pelo menos seis meses. Enquanto a conta
+ * não cumprir isso, o cliente paga pelo Pix comum — QR novo a cada ciclo — em
+ * vez de ficar sem conseguir pagar. Quando a conta passar a cumprir, o
+ * Automático começa a valer sozinho, sem mudança no código.
  */
 export async function assinarComPix(entrada: unknown): Promise<ResultadoDoPix> {
   if (!asaasConfigurado) {
@@ -274,9 +440,8 @@ export async function assinarComPix(entrada: unknown): Promise<ResultadoDoPix> {
     return { ok: false, erro: mensagemDoZod(analise.error.issues) };
   }
 
-  const { plano, titular } = analise.data;
-
   try {
+    const plano = exigirPlano(analise.data.plano);
     const perfil = await garantirPerfil();
 
     const jaTem = await assinaturaDoPerfil(perfil.id);
@@ -284,10 +449,31 @@ export async function assinarComPix(entrada: unknown): Promise<ResultadoDoPix> {
       return { ok: false, erro: "Você já tem uma assinatura ativa." };
     }
 
-    // Quem gerou o Pix, fechou a tela e voltou recebe o mesmo QR, desde que
-    // seja o mesmo plano e a cobrança ainda esteja em aberto. Gerar outro a
-    // cada visita espalharia cobranças pendentes na conta do Asaas.
-    const pendente = await pixEmAberto(jaTem, plano);
+    const clienteId = await garantirCliente(perfil.id, analise.data.titular);
+
+    try {
+      const qrCode = await abrirPixAutomatico({
+        perfilId: perfil.id,
+        plano,
+        clienteId,
+        anterior: jaTem,
+      });
+      revalidatePath("/app", "layout");
+      return { ok: true, qrCode, automatico: true };
+    } catch (erro) {
+      if (!(erro instanceof ErroDoAsaas)) throw erro;
+      // Fica no log da Vercel: é por aqui que se descobre quando e por que o
+      // Automático não está valendo (conta ainda não elegível, por exemplo).
+      console.warn(
+        `[pix-automatico] recusado pelo Asaas (${erro.status}${
+          erro.codigo ? `, ${erro.codigo}` : ""
+        }): ${erro.message} — usando Pix comum.`
+      );
+    }
+
+    // Pix comum. Quem gerou o QR, fechou a tela e voltou recebe o mesmo, desde
+    // que seja o mesmo plano e a cobrança ainda esteja em aberto.
+    const pendente = await pixEmAberto(jaTem, plano.id);
 
     const assinatura =
       pendente?.assinatura ??
@@ -295,14 +481,16 @@ export async function assinarComPix(entrada: unknown): Promise<ResultadoDoPix> {
         perfilId: perfil.id,
         plano,
         metodo: "PIX",
-        titular,
+        clienteId,
         anterior: jaTem,
         extras: {},
       }));
 
     const cobranca =
       pendente?.cobranca ??
-      (await primeiraCobrancaDaAssinatura(assinatura.asaas_subscription_id));
+      (assinatura.asaas_subscription_id
+        ? await primeiraCobrancaDaAssinatura(assinatura.asaas_subscription_id)
+        : null);
     if (!cobranca) {
       return {
         ok: false,
@@ -315,6 +503,7 @@ export async function assinarComPix(entrada: unknown): Promise<ResultadoDoPix> {
     revalidatePath("/app", "layout");
     return {
       ok: true,
+      automatico: false,
       qrCode: {
         imagemBase64: qr.encodedImage,
         copiaECola: qr.payload,
@@ -328,7 +517,7 @@ export async function assinarComPix(entrada: unknown): Promise<ResultadoDoPix> {
 }
 
 /**
- * Pergunta ao Asaas se a cobrança em aberto já foi paga.
+ * Pergunta ao Asaas se o pagamento em aberto já caiu.
  *
  * A tela do Pix chama isto enquanto o usuário paga. O webhook continua sendo
  * o caminho oficial; esta consulta existe para o caso de ele demorar, e
@@ -340,9 +529,33 @@ export async function conferirPagamento(): Promise<{ liberado: boolean }> {
 
   try {
     const perfil = await garantirPerfil();
-    const assinatura = await assinaturaDoPerfil(perfil.id);
+    let assinatura = await assinaturaDoPerfil(perfil.id);
     if (!assinatura) return { liberado: false };
     if (assinaturaDaAcesso(assinatura)) return { liberado: true };
+
+    if (assinatura.metodo === "PIX_AUTOMATICO" && assinatura.asaas_authorization_id) {
+      const autorizacao = await obterAutorizacaoPixAutomatico(
+        assinatura.asaas_authorization_id
+      );
+      assinatura = await vincularAssinaturaDoAsaas(
+        assinatura,
+        autorizacao.subscriptionId
+      );
+
+      // O acesso sai do dinheiro, não da autorização: o banco do cliente pode
+      // levar um tempo para confirmar a recorrência depois de o pagamento já
+      // ter caído, e quem pagou não deveria esperar por isso.
+      const pagou =
+        autorizacao.status === "ACTIVE" ||
+        (await pagamentoInicialRecebido(assinatura));
+      if (!pagou) return { liberado: false };
+
+      await registrarPagamentoConfirmado(assinatura);
+      revalidatePath("/app", "layout");
+      return { liberado: true };
+    }
+
+    if (!assinatura.asaas_subscription_id) return { liberado: false };
 
     const cobranca = await primeiraCobrancaDaAssinatura(
       assinatura.asaas_subscription_id
@@ -370,10 +583,8 @@ export async function cancelarMinhaAssinatura(): Promise<ResultadoDeAcao> {
       return { ok: false, erro: "Você não tem assinatura para cancelar." };
     }
 
-    await cancelarAssinatura(assinatura.asaas_subscription_id);
-
-    const atual = await assinaturaPorIdDoAsaas(assinatura.asaas_subscription_id);
-    await registrarCancelamento(atual ?? assinatura);
+    await encerrarNoAsaas(assinatura, { estrito: true });
+    await registrarCancelamento(assinatura);
 
     revalidatePath("/app", "layout");
     return { ok: true };

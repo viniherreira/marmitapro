@@ -41,6 +41,21 @@ export function SituacaoDaAssinatura({
   const status = assinatura.status as StatusDaAssinatura;
   const rotulo = ROTULO[status] ?? ROTULO.pendente;
   const noCartao = assinatura.metodo === "CREDIT_CARD";
+  const pixAutomatico = assinatura.metodo === "PIX_AUTOMATICO";
+
+  const formaDePagamento = noCartao
+    ? assinatura.cartao_final
+      ? `${assinatura.cartao_bandeira ?? "cartão"} final ${assinatura.cartao_final}`
+      : "cartão"
+    : pixAutomatico
+      ? "Pix Automático"
+      : "Pix";
+
+  const avisoDeAtraso = noCartao
+    ? "O Asaas tenta de novo nos próximos dias. Se o cartão mudou, cancele aqui e assine outra vez com o cartão novo."
+    : pixAutomatico
+      ? "O débito automático não passou — costuma ser saldo ou limite do Pix no banco. O Asaas tenta de novo nos próximos dias. O acesso continua até a data acima."
+      : "Gere um novo Pix assinando de novo por aqui. O acesso continua até a data acima.";
 
   function cancelar() {
     iniciarCancelamento(async () => {
@@ -69,10 +84,8 @@ export function SituacaoDaAssinatura({
               <p className="t-h3">Plano {plano?.nome.toLowerCase() ?? assinatura.plano}</p>
               <p className="t-small text-muted">
                 {formatarMoeda(Number(assinatura.valor))}{" "}
-                {assinatura.plano === "anual" ? "por ano" : "por mês"}
-                {noCartao && assinatura.cartao_final
-                  ? ` · ${assinatura.cartao_bandeira ?? "cartão"} final ${assinatura.cartao_final}`
-                  : " · Pix"}
+                {assinatura.plano === "anual" ? "por ano" : "por mês"} ·{" "}
+                {formaDePagamento}
               </p>
             </div>
           </div>
@@ -104,9 +117,7 @@ export function SituacaoDaAssinatura({
 
       {status === "atrasada" ? (
         <Alert tone="warning" title="A última cobrança não foi paga">
-          {noCartao
-            ? "O Asaas tenta de novo nos próximos dias. Se o cartão mudou, cancele aqui e assine outra vez com o cartão novo."
-            : "Gere um novo Pix assinando de novo por aqui. O acesso continua até a data acima."}
+          {avisoDeAtraso}
         </Alert>
       ) : null}
 

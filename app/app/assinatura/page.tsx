@@ -4,7 +4,7 @@ import { CabecalhoDePagina } from "@/components/app/cabecalho-de-pagina";
 import { Checkout } from "@/components/assinatura/checkout";
 import { SituacaoDaAssinatura } from "@/components/assinatura/situacao";
 import { Alert } from "@/components/ui/alert";
-import { situacaoDeAcesso } from "@/lib/data/assinaturas";
+import { assinaturaDaAcesso, situacaoDeAcesso } from "@/lib/data/assinaturas";
 import { PLANOS_DE_COBRANCA } from "@/lib/pagamentos/planos";
 
 export const metadata: Metadata = {
@@ -51,11 +51,18 @@ export default async function AssinaturaPage() {
           Falta a chave do Asaas neste ambiente. Enquanto ela não existir, o app
           segue com tudo liberado e nada é cobrado.
         </Alert>
-      ) : situacao.assinatura && situacao.liberado ? (
+      ) : situacao.assinatura && assinaturaDaAcesso(situacao.assinatura) ? (
+        // Assinatura paga vem antes da cortesia: quem tem as duas precisa ver
+        // e poder cancelar o que está pagando.
         <SituacaoDaAssinatura
           assinatura={situacao.assinatura}
           plano={situacao.plano}
         />
+      ) : situacao.cortesia ? (
+        <Alert tone="success" title="Acesso cortesia">
+          Esta conta tem o MarmitaPRO completo liberado, sem assinatura e sem
+          cobrança: trilha, calculadoras, receitas e pedidos.
+        </Alert>
       ) : (
         <Checkout planos={PLANOS_NA_TELA} />
       )}

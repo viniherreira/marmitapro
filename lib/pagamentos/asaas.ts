@@ -10,6 +10,7 @@
  */
 
 import { env } from "@/lib/env";
+import type { FrequenciaPix } from "@/lib/pagamentos/planos";
 
 const BASES = {
   sandbox: "https://api-sandbox.asaas.com/v3",
@@ -211,4 +212,97 @@ export async function obterCobranca(id: string) {
 
 export async function qrCodeDaCobranca(cobrancaId: string) {
   return chamarAsaas<QrCodePix>(`/payments/${cobrancaId}/pixQrCode`);
+}
+
+// --- Pix Automático ---------------------------------------------------------
+// Documentação: https://docs.asaas.com/docs/pix-automatico
+//
+// O cliente lê um QR Code só, que paga o primeiro ciclo e autoriza os débitos
+// seguintes no banco dele. A autorização nasce CREATED e vira ACTIVE quando o
+// banco do pagador confirma — só a partir daí os débitos automáticos valem.
+
+export type StatusDaAutorizacao =
+  | "CREATED"
+  | "ACTIVE"
+  | "CANCELLED"
+  | "REFUSED"
+  | "EXPIRED";
+
+export type AutorizacaoPixAutomatico = {
+  id: string;
+  status: StatusDaAutorizacao;
+  /** Assinatura que gera as cobranças no modo SUBSCRIPTION. */
+  subscriptionId?: string | null;
+  /** QR Code do primeiro pagamento: vem na raiz da resposta de criação. */
+  payload?: string | null;
+  encodedImage?: string | null;
+  immediateQrCode?: { expirationDate?: string | null } | null;
+};
+
+export async function criarAutorizacaoPixAutomatico(corpo: {
+  customerId: string;
+  frequency: FrequenciaPix;
+  contractId: string;
+  startDate: string;
+  value: number;
+  description: string;
+  primeiroPagamento: { valor: number; expiraEmSegundos: number; descricao: string };
+}) {
+  return chamarAsaas<AutorizacaoPixAutomatico>("/pix/automatic/authorizations", {
+    metodo: "POST",
+    corpo: {
+      customerId: corpo.customerId,
+      frequency: corpo.frequency,
+      contractId: corpo.contractId,
+      startDate: corpo.startDate,
+      value: corpo.value,
+      description: corpo.description,
+      // O Asaas gera as cobranças dos ciclos seguintes sozinho, por uma
+      // assinatura. No modo MANUAL seria preciso criar cada cobrança pela
+      // API entre 2 e 10 dias úteis antes do vencimento — um agendador a
+      // mais para manter, sem ganho nenhum para quem vende um plano fixo.
+      paymentCreationMode: "SUBSCRIPTION",
+      // Débito recusado (saldo insuficiente) ganha até 3 novas tentativas em
+      // 7 dias antes de virar atraso.
+      retryPolicy: "ALLOW_THREE_IN_SEVEN_DAYS",
+      immediateQrCode: {
+        originalValue: corpo.primeiroPagamento.valor,
+        expirationSeconds: corpo.primeiroPagamento.expiraEmSegundos,
+        description: corpo.primeiroPagamento.descricao,
+      },
+    },
+  });
+}
+
+export async function obterAutorizacaoPixAutomatico(id: string) {
+  return chamarAsaas<AutorizacaoPixAutomatico>(
+    `/pix/automatic/authorizations/${id}`
+  );
+}
+
+export async function cancelarAutorizacaoPixAutomatico(id: string) {
+  return chamarAsaas<unknown>(`/pix/automatic/authorizations/${id}`, {
+    metodo: "DELETE",
+  });
+}
+
+/**
+ * Cobranças recebidas de um cliente a partir de uma data.
+ *
+ * Existe para um caso de borda do Pix Automático: o banco do pagador pode
+ * recusar a autorização mesmo depois de o primeiro pagamento ter caído. Aí o
+ * dinheiro entrou e o ciclo pago precisa virar acesso, mesmo sem recorrência.
+ */
+export async function cobrancasRecebidasDesde(
+  clienteId: string,
+  desde: string
+): Promise<CobrancaAsaas[]> {
+  const params = new URLSearchParams({
+    customer: clienteId,
+    status: "RECEIVED",
+    "dateCreated[ge]": desde,
+    limit: "10",
+  });
+  const lista = await chamarAsaas<{ data: CobrancaAsaas[] }>(`/payments?${params}`);
+  return lista.data ?? [];
 }

@@ -1,6 +1,7 @@
 import { cache } from "react";
 
 import { garantirPerfil } from "@/lib/auth/perfil";
+import { hojeNoBrasil } from "@/lib/datas";
 import { asaasConfigurado } from "@/lib/env";
 import { planoPorId, type PlanoDeCobranca } from "@/lib/pagamentos/planos";
 import { clienteAdmin } from "@/lib/supabase/server";
@@ -13,7 +14,32 @@ export type SituacaoDeAcesso = {
   cobrancaLigada: boolean;
   assinatura: Assinatura | null;
   plano: PlanoDeCobranca | null;
+  /** Acesso liberado sem assinatura, pela lista de cortesia (access_grants). */
+  cortesia: boolean;
 };
+
+/**
+ * Se o e-mail está na lista de cortesia, com liberação vigente.
+ *
+ * O e-mail vem do perfil, que o copia do Clerk — e o Clerk só entrega e-mail
+ * verificado. Ninguém ganha a cortesia de outra pessoa digitando o e-mail
+ * dela no cadastro.
+ */
+export async function temCortesia(email: string | null): Promise<boolean> {
+  if (!email) return false;
+
+  const { data, error } = await clienteAdmin()
+    .from("access_grants")
+    .select("valido_ate")
+    .eq("email", email.trim().toLowerCase())
+    .is("revogado_em", null)
+    .maybeSingle();
+
+  // Falha ao ler a lista não pode derrubar a tela de quem paga: sem a
+  // resposta, a pessoa fica só com o que a assinatura dela dá.
+  if (error || !data) return false;
+  return !data.valido_ate || data.valido_ate >= hojeEmIso();
+}
 
 export async function assinaturaDoPerfil(
   profileId: string
@@ -49,9 +75,12 @@ export function assinaturaDaAcesso(assinatura: Assinatura | null): boolean {
   return (assinatura.status as StatusDaAssinatura) === "ativa";
 }
 
-/** Data de hoje em "YYYY-MM-DD", que é como o Postgres devolve `date`. */
+/**
+ * Hoje em "YYYY-MM-DD", que é como o Postgres devolve `date`. No horário de
+ * Brasília: em UTC, o acesso que vence hoje cairia às 21h.
+ */
 export function hojeEmIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return hojeNoBrasil();
 }
 
 /**
@@ -66,17 +95,22 @@ export const situacaoDeAcesso = cache(
         cobrancaLigada: false,
         assinatura: null,
         plano: null,
+        cortesia: false,
       };
     }
 
     const perfil = await garantirPerfil();
-    const assinatura = await assinaturaDoPerfil(perfil.id);
+    const [assinatura, cortesia] = await Promise.all([
+      assinaturaDoPerfil(perfil.id),
+      temCortesia(perfil.email),
+    ]);
 
     return {
-      liberado: assinaturaDaAcesso(assinatura),
+      liberado: cortesia || assinaturaDaAcesso(assinatura),
       cobrancaLigada: true,
       assinatura,
       plano: assinatura ? planoPorId(assinatura.plano) : null,
+      cortesia,
     };
   }
 );

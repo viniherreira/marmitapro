@@ -8,8 +8,6 @@
  * semana errada.
  */
 
-const FUSO = "America/Sao_Paulo";
-
 const DIAS = [
   "Domingo",
   "Segunda",
@@ -20,16 +18,7 @@ const DIAS = [
   "Sábado",
 ];
 
-/** Hoje, no horário de Brasília. */
-export function hojeNoBrasil(): string {
-  // en-CA formata como YYYY-MM-DD, que é exatamente o que precisamos.
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: FUSO,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
+export { hojeNoBrasil } from "@/lib/datas";
 
 function comoData(iso: string): Date {
   return new Date(`${iso}T00:00:00Z`);

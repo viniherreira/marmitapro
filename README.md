@@ -141,6 +141,36 @@ e cadastre essa URL.
 Para cobrar no cartão em produção, o checkout transparente precisa ser
 liberado pelo gerente da sua conta no Asaas. Em sandbox ele já funciona.
 
+No Pix, o checkout tenta primeiro o **Pix Automático** (um QR que paga o
+primeiro período e autoriza os débitos seguintes no banco do cliente). O Asaas
+só libera o Pix Automático para conta de Pessoa Jurídica com CNPJ ativo há pelo
+menos seis meses; enquanto a conta não cumprir isso, o checkout cai sozinho no
+Pix comum, e o motivo aparece nos logs da Vercel como `[pix-automatico]`. Para
+o app saber quando o cliente autoriza ou cancela no banco, o webhook precisa
+dos eventos `PIX_AUTOMATIC_RECURRING_AUTHORIZATION_*` e
+`PIX_AUTOMATIC_RECURRING_PAYMENT_INSTRUCTION_REFUSED`.
+
+#### Acesso cortesia
+
+Contas que usam o app completo sem pagar (o dono, contas de teste) ficam na
+tabela `access_grants`, por e-mail. O e-mail é dado, não código — entra direto
+no SQL Editor do Supabase:
+
+```sql
+insert into public.access_grants (email, motivo)
+values ('pessoa@exemplo.com', 'Conta de teste');
+```
+
+Para tirar, marque a revogação em vez de apagar, e fica o registro:
+
+```sql
+update public.access_grants set revogado_em = now()
+where email = 'pessoa@exemplo.com' and revogado_em is null;
+```
+
+O e-mail é sempre em minúsculas, e `valido_ate` opcional limita a cortesia a
+uma data.
+
 ### 6. Rodar
 
 ```bash

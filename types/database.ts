@@ -21,6 +21,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_grants: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          motivo: string
+          revogado_em: string | null
+          valido_ate: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          motivo: string
+          revogado_em?: string | null
+          valido_ate?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          motivo?: string
+          revogado_em?: string | null
+          valido_ate?: string | null
+        }
+        Relationships: []
+      }
       asaas_events: {
         Row: {
           asaas_payment_id: string | null
@@ -627,8 +654,9 @@ export type Database = {
       subscriptions: {
         Row: {
           acesso_ate: string | null
+          asaas_authorization_id: string | null
           asaas_customer_id: string
-          asaas_subscription_id: string
+          asaas_subscription_id: string | null
           cartao_bandeira: string | null
           cartao_final: string | null
           created_at: string
@@ -644,8 +672,9 @@ export type Database = {
         }
         Insert: {
           acesso_ate?: string | null
+          asaas_authorization_id?: string | null
           asaas_customer_id: string
-          asaas_subscription_id: string
+          asaas_subscription_id?: string | null
           cartao_bandeira?: string | null
           cartao_final?: string | null
           created_at?: string
@@ -661,8 +690,9 @@ export type Database = {
         }
         Update: {
           acesso_ate?: string | null
+          asaas_authorization_id?: string | null
           asaas_customer_id?: string
-          asaas_subscription_id?: string
+          asaas_subscription_id?: string | null
           cartao_bandeira?: string | null
           cartao_final?: string | null
           created_at?: string

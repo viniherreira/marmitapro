@@ -7,7 +7,7 @@
  * mesmas funções, então o resultado não depende de qual chegou primeiro.
  */
 
-import { obterAssinatura } from "@/lib/pagamentos/asaas";
+import { cobrancasRecebidasDesde, obterAssinatura } from "@/lib/pagamentos/asaas";
 import { planoPorId } from "@/lib/pagamentos/planos";
 import { clienteAdmin } from "@/lib/supabase/server";
 import type { Assinatura } from "@/types/database";
@@ -28,6 +28,38 @@ export async function assinaturaPorIdDoAsaas(
 
   if (error) throw new Error(`Falha ao ler a assinatura: ${error.message}`);
   return data;
+}
+
+/** A assinatura de Pix Automático, pelo id da autorização no Asaas. */
+export async function assinaturaPorAutorizacao(
+  autorizacaoId: string
+): Promise<Assinatura | null> {
+  const supabase = clienteAdmin();
+
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .select("*")
+    .eq("asaas_authorization_id", autorizacaoId)
+    .maybeSingle();
+
+  if (error) throw new Error(`Falha ao ler a assinatura: ${error.message}`);
+  return data;
+}
+
+/**
+ * Grava o id da assinatura que o Asaas cria para gerar os débitos do Pix
+ * Automático. Sem ele, os avisos de pagamento dos meses seguintes — que
+ * chegam pela assinatura, não pela autorização — não achariam a quem liberar.
+ */
+export async function vincularAssinaturaDoAsaas(
+  assinatura: Assinatura,
+  asaasSubscriptionId: string | null | undefined
+): Promise<Assinatura> {
+  if (!asaasSubscriptionId || assinatura.asaas_subscription_id === asaasSubscriptionId) {
+    return assinatura;
+  }
+  await atualizar(assinatura.id, { asaas_subscription_id: asaasSubscriptionId });
+  return { ...assinatura, asaas_subscription_id: asaasSubscriptionId };
 }
 
 function somarDias(data: string, dias: number): string {
@@ -52,14 +84,18 @@ export async function registrarPagamentoConfirmado(
   let bandeira: string | null = assinatura.cartao_bandeira;
   let final: string | null = assinatura.cartao_final;
 
-  try {
-    const remota = await obterAssinatura(assinatura.asaas_subscription_id);
-    proximoVencimento = remota.nextDueDate ?? null;
-    bandeira = remota.creditCard?.creditCardBrand ?? bandeira;
-    final = remota.creditCard?.creditCardNumber ?? final;
-  } catch {
-    // Seguimos com o prazo do plano: perder o acesso de quem pagou é pior do
-    // que conceder um dia a mais para quem parou de pagar.
+  // Pix Automático recém-autorizado ainda pode não ter assinatura no Asaas:
+  // aí o prazo sai do plano.
+  if (assinatura.asaas_subscription_id) {
+    try {
+      const remota = await obterAssinatura(assinatura.asaas_subscription_id);
+      proximoVencimento = remota.nextDueDate ?? null;
+      bandeira = remota.creditCard?.creditCardBrand ?? bandeira;
+      final = remota.creditCard?.creditCardNumber ?? final;
+    } catch {
+      // Seguimos com o prazo do plano: perder o acesso de quem pagou é pior
+      // do que conceder um dia a mais para quem parou de pagar.
+    }
   }
 
   const plano = planoPorId(assinatura.plano);
@@ -77,6 +113,27 @@ export async function registrarPagamentoConfirmado(
     cartao_bandeira: bandeira,
     cartao_final: final,
   });
+}
+
+/**
+ * Se o cliente já pagou o QR do primeiro ciclo do Pix Automático: procura
+ * uma cobrança recebida no valor do plano, criada desde que a assinatura foi
+ * aberta.
+ */
+export async function pagamentoInicialRecebido(
+  assinatura: Assinatura
+): Promise<boolean> {
+  // Um dia antes da abertura: `updated_at` é UTC, e um QR gerado às 23h50 em
+  // Brasília já é o dia seguinte em UTC, enquanto o Asaas data a cobrança no
+  // dia de Brasília. Cliente e valor já tornam a busca precisa.
+  const abertura = new Date(assinatura.updated_at);
+  abertura.setUTCDate(abertura.getUTCDate() - 1);
+
+  const recebidas = await cobrancasRecebidasDesde(
+    assinatura.asaas_customer_id,
+    abertura.toISOString().slice(0, 10)
+  ).catch(() => []);
+  return recebidas.some((c) => Number(c.value) === Number(assinatura.valor));
 }
 
 /** Venceu e não pagou. O acesso ainda respeita `acesso_ate`, que tem folga. */

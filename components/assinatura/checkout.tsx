@@ -124,6 +124,7 @@ export function Checkout({ planos }: { planos: PlanoNaTela[] }) {
   const [metodo, setMetodo] = React.useState<Metodo>("CREDIT_CARD");
   const [enviando, iniciarEnvio] = React.useTransition();
   const [qrCode, setQrCode] = React.useState<QrCodeParaPagar | null>(null);
+  const [pixAutomatico, setPixAutomatico] = React.useState(false);
   const [copiado, setCopiado] = React.useState(false);
 
   const {
@@ -160,6 +161,7 @@ export function Checkout({ planos }: { planos: PlanoNaTela[] }) {
           toast.error(resultado.erro);
           return;
         }
+        setPixAutomatico(resultado.automatico);
         setQrCode(resultado.qrCode);
         return;
       }
@@ -192,6 +194,8 @@ export function Checkout({ planos }: { planos: PlanoNaTela[] }) {
     return (
       <PagamentoPix
         qrCode={qrCode}
+        automatico={pixAutomatico}
+        periodo={escolhido.periodo}
         copiado={copiado}
         aoCopiar={async () => {
           await navigator.clipboard.writeText(qrCode.copiaECola);
@@ -430,10 +434,16 @@ function BotaoDeMetodo({
  */
 function PagamentoPix({
   qrCode,
+  automatico,
+  periodo,
   copiado,
   aoCopiar,
 }: {
   qrCode: QrCodeParaPagar;
+  /** Pix Automático: o mesmo QR paga agora e autoriza os próximos débitos. */
+  automatico: boolean;
+  /** "por mês" ou "por ano", para dizer de quanto em quanto tempo debita. */
+  periodo: string;
   copiado: boolean;
   aoCopiar: () => void;
 }) {
@@ -454,10 +464,24 @@ function PagamentoPix({
 
   return (
     <div className="space-y-6">
-      <Alert tone="info" title="Pague para liberar o acesso">
-        Abra o app do seu banco, escolha Pix e leia o código. A tela libera
-        sozinha assim que o pagamento cair.
-      </Alert>
+      {automatico ? (
+        // O cliente precisa saber que está autorizando débitos futuros, e não
+        // só pagando um mês: é o que o banco dele vai mostrar na confirmação,
+        // e surpresa com débito recorrente vira reclamação e estorno.
+        <Alert tone="info" title="Pix Automático: pague uma vez, renove sozinho">
+          Leia o código no app do seu banco. Você paga agora o primeiro período
+          e autoriza os próximos débitos de {formatarMoeda(qrCode.valor)}{" "}
+          {periodo}, feitos automaticamente pelo seu banco. Dá para cancelar a
+          qualquer momento, aqui ou no próprio app do banco. A tela libera
+          sozinha assim que o pagamento cair.
+        </Alert>
+      ) : (
+        <Alert tone="info" title="Pague para liberar o acesso">
+          Abra o app do seu banco, escolha Pix e leia o código. A tela libera
+          sozinha assim que o pagamento cair. A cada renovação, um novo Pix é
+          enviado para o seu e-mail.
+        </Alert>
+      )}
 
       <div className="grid gap-6 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
         <div className="rounded-xl border border-border bg-white p-4">
@@ -475,7 +499,9 @@ function PagamentoPix({
             <span className="t-metric" data-numeric>
               {formatarMoeda(qrCode.valor)}
             </span>
-            <span className="t-small text-muted">a pagar agora</span>
+            <span className="t-small text-muted">
+              {automatico ? `agora, e depois ${periodo} no automático` : "a pagar agora"}
+            </span>
           </p>
 
           <div className="space-y-2">
