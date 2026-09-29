@@ -122,6 +122,14 @@ export type CobrancaAsaas = {
   dueDate: string;
   value: number;
   invoiceUrl?: string;
+  /** PDF do boleto, quando a cobrança é BOLETO. */
+  bankSlipUrl?: string | null;
+};
+
+export type LinhaDigitavel = {
+  identificationField: string;
+  nossoNumero?: string;
+  barCode?: string;
 };
 
 export type QrCodePix = {
@@ -212,6 +220,11 @@ export async function obterCobranca(id: string) {
 
 export async function qrCodeDaCobranca(cobrancaId: string) {
   return chamarAsaas<QrCodePix>(`/payments/${cobrancaId}/pixQrCode`);
+}
+
+/** Linha digitável do boleto, para o cliente pagar pelo app do banco. */
+export async function linhaDigitavelDoBoleto(cobrancaId: string) {
+  return chamarAsaas<LinhaDigitavel>(`/payments/${cobrancaId}/identificationField`);
 }
 
 // --- Pix Automático ---------------------------------------------------------

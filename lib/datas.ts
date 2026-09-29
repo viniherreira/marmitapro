@@ -20,6 +20,13 @@ export function hojeNoBrasil(): string {
   }).format(new Date());
 }
 
+/** Soma dias a uma data "YYYY-MM-DD", sem passar por fuso nenhum. */
+export function somarDias(iso: string, dias: number): string {
+  const data = new Date(`${iso}T00:00:00Z`);
+  data.setUTCDate(data.getUTCDate() + dias);
+  return data.toISOString().slice(0, 10);
+}
+
 /**
  * Soma meses a uma data "YYYY-MM-DD", segurando no último dia do mês quando
  * o dia não existe: 31/01 + 1 mês é 28/02 (ou 29), e não 03/03.

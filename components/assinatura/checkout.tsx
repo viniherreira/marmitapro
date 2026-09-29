@@ -4,7 +4,15 @@ import * as React from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, Copy, CreditCard, Loader2, QrCode } from "lucide-react";
+import {
+  Barcode,
+  Check,
+  Copy,
+  CreditCard,
+  ExternalLink,
+  Loader2,
+  QrCode,
+} from "lucide-react";
 import { useForm, type Resolver } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -16,7 +24,9 @@ import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   assinarComCartao,
+  assinarComBoleto,
   assinarComPix,
+  type BoletoParaPagar,
   conferirPagamento,
   type QrCodeParaPagar,
 } from "@/lib/actions/assinatura";
@@ -33,7 +43,7 @@ type PlanoNaTela = {
   destaque: boolean;
 };
 
-type Metodo = "PIX" | "CREDIT_CARD";
+type Metodo = "PIX" | "CREDIT_CARD" | "BOLETO";
 
 /**
  * Validação do formulário, no navegador.
@@ -125,6 +135,7 @@ export function Checkout({ planos }: { planos: PlanoNaTela[] }) {
   const [enviando, iniciarEnvio] = React.useTransition();
   const [qrCode, setQrCode] = React.useState<QrCodeParaPagar | null>(null);
   const [pixAutomatico, setPixAutomatico] = React.useState(false);
+  const [boleto, setBoleto] = React.useState<BoletoParaPagar | null>(null);
   const [copiado, setCopiado] = React.useState(false);
 
   const {
@@ -163,6 +174,16 @@ export function Checkout({ planos }: { planos: PlanoNaTela[] }) {
         }
         setPixAutomatico(resultado.automatico);
         setQrCode(resultado.qrCode);
+        return;
+      }
+
+      if (metodo === "BOLETO") {
+        const resultado = await assinarComBoleto({ plano, titular });
+        if (!resultado.ok) {
+          toast.error(resultado.erro);
+          return;
+        }
+        setBoleto(resultado.boleto);
         return;
       }
 
@@ -206,6 +227,10 @@ export function Checkout({ planos }: { planos: PlanoNaTela[] }) {
     );
   }
 
+  if (boleto) {
+    return <PagamentoBoleto boleto={boleto} />;
+  }
+
   return (
     <form onSubmit={handleSubmit(enviar)} className="space-y-10">
       <section>
@@ -246,7 +271,7 @@ export function Checkout({ planos }: { planos: PlanoNaTela[] }) {
       <section>
         <h2 className="t-eyebrow">2. Forma de pagamento</h2>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <BotaoDeMetodo
             ativo={metodo === "CREDIT_CARD"}
             aoEscolher={() => setMetodo("CREDIT_CARD")}
@@ -260,6 +285,13 @@ export function Checkout({ planos }: { planos: PlanoNaTela[] }) {
             icone={QrCode}
             titulo="Pix"
             texto="QR Code aqui mesmo. Cai em segundos."
+          />
+          <BotaoDeMetodo
+            ativo={metodo === "BOLETO"}
+            aoEscolher={() => setMetodo("BOLETO")}
+            icone={Barcode}
+            titulo="Boleto"
+            texto="Libera quando compensar, em até 1 dia útil."
           />
         </div>
       </section>
@@ -384,6 +416,8 @@ export function Checkout({ planos }: { planos: PlanoNaTela[] }) {
             </>
           ) : metodo === "PIX" ? (
             "Gerar QR Code do Pix"
+          ) : metodo === "BOLETO" ? (
+            "Gerar boleto"
           ) : (
             "Assinar agora"
           )}
@@ -525,6 +559,166 @@ function PagamentoPix({
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function dataBrasileira(iso: string): string {
+  const [ano, mes, dia] = iso.slice(0, 10).split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+
+/**
+ * Tela do boleto gerado.
+ *
+ * O boleto do Asaas também aceita Pix. Quando o QR existe, ele aparece como
+ * atalho: pago por Pix, o acesso libera em segundos em vez de esperar a
+ * compensação — e aí vale a pena a tela ficar perguntando se caiu.
+ */
+function PagamentoBoleto({ boleto }: { boleto: BoletoParaPagar }) {
+  const router = useRouter();
+  const [copiado, setCopiado] = React.useState<"linha" | "pix" | null>(null);
+
+  async function copiar(texto: string, qual: "linha" | "pix") {
+    await navigator.clipboard.writeText(texto);
+    setCopiado(qual);
+    setTimeout(() => setCopiado(null), 2500);
+  }
+
+  React.useEffect(() => {
+    if (!boleto.pix) return;
+    const intervalo = setInterval(async () => {
+      const { liberado } = await conferirPagamento();
+      if (liberado) {
+        clearInterval(intervalo);
+        toast.success("Pagamento confirmado. Acesso liberado.");
+        router.refresh();
+      }
+    }, 10000);
+    return () => clearInterval(intervalo);
+  }, [boleto.pix, router]);
+
+  return (
+    <div className="space-y-6">
+      <Alert tone="info" title="Boleto gerado">
+        Pague até {dataBrasileira(boleto.vencimento)}. O acesso libera quando o
+        banco compensar: pagamentos até 13h30 compensam no mesmo dia, depois
+        disso no dia útil seguinte. O Asaas também envia este boleto para o seu
+        e-mail, e um boleto novo chega a cada renovação.
+      </Alert>
+
+      <div className="rounded-xl border border-border bg-surface p-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <p className="flex items-baseline gap-2">
+            <span className="t-metric" data-numeric>
+              {formatarMoeda(boleto.valor)}
+            </span>
+            <span className="t-small text-muted">
+              vence em {dataBrasileira(boleto.vencimento)}
+            </span>
+          </p>
+        </div>
+
+        <div className="mt-5 space-y-2">
+          <p className="t-small text-muted">Linha digitável</p>
+          {boleto.linhaDigitavel ? (
+            <div className="flex gap-2">
+              <Input
+                readOnly
+                value={boleto.linhaDigitavel}
+                aria-label="Linha digitável do boleto"
+                className="font-mono text-xs"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => copiar(boleto.linhaDigitavel as string, "linha")}
+              >
+                {copiado === "linha" ? (
+                  <Check className="size-4" aria-hidden="true" />
+                ) : (
+                  <Copy className="size-4" aria-hidden="true" />
+                )}
+                {copiado === "linha" ? "Copiado" : "Copiar"}
+              </Button>
+            </div>
+          ) : (
+            <p className="t-small">
+              O banco ainda está registrando o boleto. A linha digitável já
+              aparece no PDF abaixo.
+            </p>
+          )}
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-3">
+          {boleto.pdfUrl ? (
+            <Button asChild>
+              <a href={boleto.pdfUrl} target="_blank" rel="noopener noreferrer">
+                <Barcode className="size-4" aria-hidden="true" />
+                Abrir boleto (PDF)
+              </a>
+            </Button>
+          ) : null}
+          {boleto.faturaUrl ? (
+            <Button asChild variant="secondary">
+              <a href={boleto.faturaUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="size-4" aria-hidden="true" />
+                Ver fatura
+              </a>
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
+      {boleto.pix ? (
+        <div className="rounded-xl border border-border bg-surface-sunken/50 p-6">
+          <p className="font-medium">Quer liberar agora?</p>
+          <p className="t-small mt-1 text-muted">
+            Este mesmo boleto pode ser pago por Pix. Aí o acesso libera em
+            segundos, sem esperar a compensação.
+          </p>
+
+          <div className="mt-5 grid gap-6 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
+            <div className="w-fit rounded-xl border border-border bg-white p-3">
+              <Image
+                src={`data:image/png;base64,${boleto.pix.imagemBase64}`}
+                alt="QR Code para pagar o boleto por Pix"
+                width={180}
+                height={180}
+                unoptimized
+              />
+            </div>
+            <div className="space-y-2">
+              <p className="t-small text-muted">Pix copia e cola:</p>
+              <div className="flex gap-2">
+                <Input
+                  readOnly
+                  value={boleto.pix.copiaECola}
+                  aria-label="Pix copia e cola do boleto"
+                  className="font-mono text-xs"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => copiar((boleto.pix as { copiaECola: string }).copiaECola, "pix")}
+                >
+                  {copiado === "pix" ? (
+                    <Check className="size-4" aria-hidden="true" />
+                  ) : (
+                    <Copy className="size-4" aria-hidden="true" />
+                  )}
+                  {copiado === "pix" ? "Copiado" : "Copiar"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <p className="t-small text-muted">
+        Pode fechar esta tela: quando o pagamento compensar, o acesso libera
+        sozinho.
+      </p>
     </div>
   );
 }

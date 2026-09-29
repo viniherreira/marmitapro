@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { CreditCard, Loader2, QrCode } from "lucide-react";
+import { Barcode, CreditCard, Loader2, QrCode } from "lucide-react";
 import { toast } from "sonner";
 
 import { Alert } from "@/components/ui/alert";
@@ -42,6 +42,7 @@ export function SituacaoDaAssinatura({
   const rotulo = ROTULO[status] ?? ROTULO.pendente;
   const noCartao = assinatura.metodo === "CREDIT_CARD";
   const pixAutomatico = assinatura.metodo === "PIX_AUTOMATICO";
+  const noBoleto = assinatura.metodo === "BOLETO";
 
   const formaDePagamento = noCartao
     ? assinatura.cartao_final
@@ -49,13 +50,17 @@ export function SituacaoDaAssinatura({
       : "cartão"
     : pixAutomatico
       ? "Pix Automático"
-      : "Pix";
+      : noBoleto
+        ? "Boleto"
+        : "Pix";
 
   const avisoDeAtraso = noCartao
     ? "O Asaas tenta de novo nos próximos dias. Se o cartão mudou, cancele aqui e assine outra vez com o cartão novo."
     : pixAutomatico
       ? "O débito automático não passou — costuma ser saldo ou limite do Pix no banco. O Asaas tenta de novo nos próximos dias. O acesso continua até a data acima."
-      : "Gere um novo Pix assinando de novo por aqui. O acesso continua até a data acima.";
+      : noBoleto
+        ? "O boleto venceu sem pagamento. Ele continua no seu e-mail e ainda pode ser pago, com os acréscimos do banco. O acesso continua até a data acima."
+        : "Gere um novo Pix assinando de novo por aqui. O acesso continua até a data acima.";
 
   function cancelar() {
     iniciarCancelamento(async () => {
@@ -77,6 +82,8 @@ export function SituacaoDaAssinatura({
           <div className="flex items-center gap-3">
             {noCartao ? (
               <CreditCard className="size-5 text-primary" aria-hidden="true" />
+            ) : noBoleto ? (
+              <Barcode className="size-5 text-primary" aria-hidden="true" />
             ) : (
               <QrCode className="size-5 text-primary" aria-hidden="true" />
             )}

@@ -9,7 +9,7 @@ import { PLANOS_DE_COBRANCA } from "@/lib/pagamentos/planos";
 
 export const metadata: Metadata = {
   title: "Assinatura",
-  description: "Assine o MarmitaPRO no cartão ou no Pix e libere as ferramentas.",
+  description: "Assine o MarmitaPRO no cartão, no Pix ou no boleto e libere as ferramentas.",
 };
 
 /** A tela precisa refletir o pagamento que acabou de cair, nunca um cache. */
@@ -43,7 +43,7 @@ export default async function AssinaturaPage() {
       <CabecalhoDePagina
         sobrelinha="Sua conta"
         titulo="Assinatura"
-        descricao="O pagamento acontece aqui dentro, no cartão ou no Pix. Quem processa é o Asaas, e o dinheiro cai direto na conta do MarmitaPRO."
+        descricao="O pagamento acontece aqui dentro, no cartão, no Pix ou no boleto. Quem processa é o Asaas, e o dinheiro cai direto na conta do MarmitaPRO."
       />
 
       {!situacao.cobrancaLigada ? (

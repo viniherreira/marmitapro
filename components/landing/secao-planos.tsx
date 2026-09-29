@@ -76,7 +76,7 @@ export function SecaoPlanos() {
       </div>
 
       <p className="t-small mt-8 text-muted">
-        Você cria a conta e assina por dentro do app, no cartão ou no Pix.
+        Você cria a conta e assina por dentro do app, no cartão, no Pix ou no boleto.
         A trilha do curso fica aberta mesmo sem assinatura; as calculadoras e
         o banco de receitas fazem parte do plano.
       </p>

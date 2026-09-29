@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import type { ResultadoDeAcao } from "@/lib/actions/onboarding";
 import { garantirPerfil } from "@/lib/auth/perfil";
 import { assinaturaDaAcesso, assinaturaDoPerfil } from "@/lib/data/assinaturas";
-import { hojeNoBrasil, somarMeses } from "@/lib/datas";
+import { hojeNoBrasil, somarDias, somarMeses } from "@/lib/datas";
 import { asaasConfigurado } from "@/lib/env";
 import {
   ErroDoAsaas,
@@ -18,6 +18,7 @@ import {
   obterAutorizacaoPixAutomatico,
   obterCobranca,
   primeiraCobrancaDaAssinatura,
+  linhaDigitavelDoBoleto,
   qrCodeDaCobranca,
   type CobrancaAsaas,
 } from "@/lib/pagamentos/asaas";
@@ -53,6 +54,23 @@ export type ResultadoDoPix =
       automatico: boolean;
     }
   | { ok: false; erro: string };
+
+export type BoletoParaPagar = {
+  linhaDigitavel: string | null;
+  pdfUrl: string | null;
+  faturaUrl: string | null;
+  vencimento: string;
+  valor: number;
+  /** O boleto do Asaas também aceita Pix; nem toda conta gera o QR. */
+  pix: { imagemBase64: string; copiaECola: string } | null;
+};
+
+export type ResultadoDoBoleto =
+  | { ok: true; boleto: BoletoParaPagar }
+  | { ok: false; erro: string };
+
+/** Dias entre gerar o boleto e o primeiro vencimento. */
+const DIAS_PARA_PAGAR_O_BOLETO = 3;
 
 /** Cobranças que o Asaas considera pagas. */
 const PAGAS = new Set(["CONFIRMED", "RECEIVED", "RECEIVED_IN_CASH"]);
@@ -91,7 +109,7 @@ type Titular = {
   numero_endereco: string;
 };
 
-type Metodo = "CREDIT_CARD" | "PIX" | "PIX_AUTOMATICO";
+type Metodo = "CREDIT_CARD" | "PIX" | "PIX_AUTOMATICO" | "BOLETO";
 
 function exigirPlano(id: string): PlanoDeCobranca {
   const plano = planoPorId(id);
@@ -214,17 +232,19 @@ async function limparAnterior(anterior: Assinatura | null, nova: Assinatura) {
 }
 
 /**
- * Cartão e Pix comum: uma assinatura do Asaas com a primeira cobrança hoje,
- * no horário de Brasília. Em UTC, depois das 21h a primeira cobrança seria
- * marcada para amanhã, e o cartão não aprovaria na hora.
+ * Cartão, Pix comum e boleto: uma assinatura do Asaas com a primeira
+ * cobrança na data dada — hoje, por padrão, no horário de Brasília. Em UTC,
+ * depois das 21h a primeira cobrança seria marcada para amanhã, e o cartão
+ * não aprovaria na hora.
  */
 async function abrirAssinatura(parametros: {
   perfilId: string;
   plano: PlanoDeCobranca;
-  metodo: "CREDIT_CARD" | "PIX";
+  metodo: "CREDIT_CARD" | "PIX" | "BOLETO";
   clienteId: string;
   extras: Record<string, unknown>;
   anterior: Assinatura | null;
+  primeiroVencimento?: string;
 }): Promise<Assinatura> {
   const { plano } = parametros;
 
@@ -232,7 +252,7 @@ async function abrirAssinatura(parametros: {
     customer: parametros.clienteId,
     billingType: parametros.metodo,
     value: plano.valor,
-    nextDueDate: hojeNoBrasil(),
+    nextDueDate: parametros.primeiroVencimento ?? hojeNoBrasil(),
     cycle: plano.ciclo,
     description: plano.descricaoNaFatura,
     externalReference: parametros.perfilId,
@@ -322,15 +342,21 @@ async function abrirPixAutomatico(parametros: {
   };
 }
 
-/** A cobrança Pix comum ainda em aberto de uma tentativa anterior, se servir. */
-async function pixEmAberto(
+/**
+ * A cobrança ainda em aberto de uma tentativa anterior, se servir: mesmo
+ * plano, mesma forma de pagamento. Quem gerou o Pix ou o boleto, fechou a
+ * tela e voltou recebe o mesmo, em vez de espalhar cobranças pendentes na
+ * conta do Asaas — e, no boleto, em vez de receber dois boletos por e-mail.
+ */
+async function cobrancaEmAberto(
   assinatura: Assinatura | null,
-  plano: string
+  plano: string,
+  metodo: "PIX" | "BOLETO"
 ): Promise<{ assinatura: Assinatura; cobranca: CobrancaAsaas } | null> {
   if (
     !assinatura ||
     assinatura.status !== "pendente" ||
-    assinatura.metodo !== "PIX" ||
+    assinatura.metodo !== metodo ||
     assinatura.plano !== plano ||
     !assinatura.asaas_subscription_id
   ) {
@@ -473,7 +499,7 @@ export async function assinarComPix(entrada: unknown): Promise<ResultadoDoPix> {
 
     // Pix comum. Quem gerou o QR, fechou a tela e voltou recebe o mesmo, desde
     // que seja o mesmo plano e a cobrança ainda esteja em aberto.
-    const pendente = await pixEmAberto(jaTem, plano.id);
+    const pendente = await cobrancaEmAberto(jaTem, plano.id, "PIX");
 
     const assinatura =
       pendente?.assinatura ??
@@ -509,6 +535,89 @@ export async function assinarComPix(entrada: unknown): Promise<ResultadoDoPix> {
         copiaECola: qr.payload,
         expiraEm: qr.expirationDate,
         valor: cobranca.value,
+      },
+    };
+  } catch (erro) {
+    return { ok: false, erro: comoErro(erro) };
+  }
+}
+
+/**
+ * Assinatura no boleto. Devolve a linha digitável, o PDF e, quando o Asaas
+ * gera, o Pix do próprio boleto — o boleto do Asaas também aceita Pix, e quem
+ * paga por ele libera o acesso na hora em vez de esperar a compensação.
+ *
+ * O primeiro vencimento fica alguns dias à frente: boleto que vence hoje
+ * obriga o cliente a pagar no mesmo dia, e boleto gerado à noite já nasceria
+ * praticamente vencido.
+ */
+export async function assinarComBoleto(
+  entrada: unknown
+): Promise<ResultadoDoBoleto> {
+  if (!asaasConfigurado) {
+    return { ok: false, erro: "A cobrança ainda não está configurada." };
+  }
+
+  const analise = assinaturaPixSchema.safeParse(entrada);
+  if (!analise.success) {
+    return { ok: false, erro: mensagemDoZod(analise.error.issues) };
+  }
+
+  try {
+    const plano = exigirPlano(analise.data.plano);
+    const perfil = await garantirPerfil();
+
+    const jaTem = await assinaturaDoPerfil(perfil.id);
+    if (jaAssinante(jaTem)) {
+      return { ok: false, erro: "Você já tem uma assinatura ativa." };
+    }
+
+    const pendente = await cobrancaEmAberto(jaTem, plano.id, "BOLETO");
+
+    const assinatura =
+      pendente?.assinatura ??
+      (await abrirAssinatura({
+        perfilId: perfil.id,
+        plano,
+        metodo: "BOLETO",
+        clienteId: await garantirCliente(perfil.id, analise.data.titular),
+        anterior: jaTem,
+        extras: {},
+        primeiroVencimento: somarDias(hojeNoBrasil(), DIAS_PARA_PAGAR_O_BOLETO),
+      }));
+
+    const cobranca =
+      pendente?.cobranca ??
+      (assinatura.asaas_subscription_id
+        ? await primeiraCobrancaDaAssinatura(assinatura.asaas_subscription_id)
+        : null);
+    if (!cobranca) {
+      return {
+        ok: false,
+        erro: "O Asaas ainda não gerou o boleto. Atualize a página em instantes.",
+      };
+    }
+
+    // O Asaas registra o boleto no banco logo depois de criar a cobrança; a
+    // linha digitável pode demorar alguns segundos para existir. Sem ela, o
+    // PDF e o link da fatura continuam servindo.
+    const [linha, pix] = await Promise.all([
+      linhaDigitavelDoBoleto(cobranca.id).catch(() => null),
+      qrCodeDaCobranca(cobranca.id).catch(() => null),
+    ]);
+
+    revalidatePath("/app", "layout");
+    return {
+      ok: true,
+      boleto: {
+        linhaDigitavel: linha?.identificationField ?? null,
+        pdfUrl: cobranca.bankSlipUrl ?? null,
+        faturaUrl: cobranca.invoiceUrl ?? null,
+        vencimento: cobranca.dueDate,
+        valor: cobranca.value,
+        pix: pix
+          ? { imagemBase64: pix.encodedImage, copiaECola: pix.payload }
+          : null,
       },
     };
   } catch (erro) {

@@ -119,7 +119,7 @@ O seed é idempotente: pode rodar de novo sem duplicar nada.
 ### 5. Ligar a cobrança (opcional)
 
 O pagamento é do [Asaas](https://docs.asaas.com), com checkout dentro do app:
-o cliente paga em `/app/assinatura`, no cartão ou no Pix, sem ir para uma
+o cliente paga em `/app/assinatura`, no cartão, no Pix ou no boleto, sem ir para uma
 página externa. Enquanto `ASAAS_API_KEY` não existir, o checkout aparece
 desligado e **nada é bloqueado** — o app roda como antes.
 
