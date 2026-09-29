@@ -21,6 +21,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      asaas_events: {
+        Row: {
+          asaas_payment_id: string | null
+          asaas_subscription_id: string | null
+          evento: string
+          id: string
+          payload: Json
+          recebido_em: string
+        }
+        Insert: {
+          asaas_payment_id?: string | null
+          asaas_subscription_id?: string | null
+          evento: string
+          id: string
+          payload: Json
+          recebido_em?: string
+        }
+        Update: {
+          asaas_payment_id?: string | null
+          asaas_subscription_id?: string | null
+          evento?: string
+          id?: string
+          payload?: Json
+          recebido_em?: string
+        }
+        Relationships: []
+      }
       ingredients: {
         Row: {
           carboidrato_g: number
@@ -457,6 +484,68 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          acesso_ate: string | null
+          asaas_customer_id: string
+          asaas_subscription_id: string
+          cartao_bandeira: string | null
+          cartao_final: string | null
+          created_at: string
+          id: string
+          metodo: string
+          plano: string
+          profile_id: string
+          proximo_vencimento: string | null
+          status: string
+          ultimo_pagamento_em: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          acesso_ate?: string | null
+          asaas_customer_id: string
+          asaas_subscription_id: string
+          cartao_bandeira?: string | null
+          cartao_final?: string | null
+          created_at?: string
+          id?: string
+          metodo: string
+          plano: string
+          profile_id: string
+          proximo_vencimento?: string | null
+          status?: string
+          ultimo_pagamento_em?: string | null
+          updated_at?: string
+          valor: number
+        }
+        Update: {
+          acesso_ate?: string | null
+          asaas_customer_id?: string
+          asaas_subscription_id?: string
+          cartao_bandeira?: string | null
+          cartao_final?: string | null
+          created_at?: string
+          id?: string
+          metodo?: string
+          plano?: string
+          profile_id?: string
+          proximo_vencimento?: string | null
+          status?: string
+          ultimo_pagamento_em?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -630,6 +719,14 @@ export type Ingrediente = Tabelas<"ingredients">;
 export type Receita = Tabelas<"recipes">;
 export type IngredienteDaReceita = Tabelas<"recipe_ingredients">;
 export type CenarioDePreco = Tabelas<"pricing_scenarios">;
+export type Assinatura = Tabelas<"subscriptions">;
+
+/** Situação da assinatura, como gravada em subscriptions.status. */
+export type StatusDaAssinatura =
+  | "pendente"
+  | "ativa"
+  | "atrasada"
+  | "cancelada";
 
 /** `itens` vem como Json do gerador; aqui recuperamos a forma real. */
 export type CalculoSalvo = Omit<Tabelas<"saved_calculations">, "itens"> & {

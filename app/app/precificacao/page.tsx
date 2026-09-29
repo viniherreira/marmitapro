@@ -3,11 +3,13 @@ import Link from "next/link";
 import { Calculator } from "lucide-react";
 
 import { CabecalhoDePagina } from "@/components/app/cabecalho-de-pagina";
+import { BloqueioDeAssinatura } from "@/components/assinatura/bloqueio";
 import { CalculadoraDePrecificacao } from "@/components/precificacao/calculadora";
 import { ListaDeCenarios } from "@/components/precificacao/lista-de-cenarios";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { garantirPerfil } from "@/lib/auth/perfil";
+import { situacaoDeAcesso } from "@/lib/data/assinaturas";
 import { listarCenarios } from "@/lib/data/ferramentas";
 
 export const metadata: Metadata = {
@@ -18,6 +20,23 @@ export const metadata: Metadata = {
 
 export default async function PrecificacaoPage() {
   const perfil = await garantirPerfil();
+  const { liberado } = await situacaoDeAcesso();
+
+  if (!liberado) {
+    return (
+      <div className="space-y-10">
+        <CabecalhoDePagina
+          sobrelinha="Ferramenta"
+          titulo="Calculadora de precificação"
+          descricao="Custo real, preço sugerido e lucro projetado, com a conta aberta."
+        />
+        <BloqueioDeAssinatura
+          ferramenta="A calculadora de precificação"
+          texto="Ela abre a conta inteira: custo do prato, sua hora de trabalho, margem e o preço que dá lucro no volume que você produz."
+        />
+      </div>
+    );
+  }
   const cenarios = await listarCenarios(perfil.id);
 
   return (

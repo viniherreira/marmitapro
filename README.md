@@ -111,11 +111,37 @@ Supabase e execute, nesta ordem, o conteúdo de
 
 1. `supabase/migrations/20260907120000_esquema_inicial.sql`
 2. `supabase/migrations/20260907120100_politicas_rls.sql`
-3. `supabase/seed.sql`
+3. as demais migrations de `supabase/migrations/`, em ordem de nome
+4. `supabase/seed.sql`
 
 O seed é idempotente: pode rodar de novo sem duplicar nada.
 
-### 5. Rodar
+### 5. Ligar a cobrança (opcional)
+
+O pagamento é do [Asaas](https://docs.asaas.com), com checkout dentro do app:
+o cliente paga em `/app/assinatura`, no cartão ou no Pix, sem ir para uma
+página externa. Enquanto `ASAAS_API_KEY` não existir, o checkout aparece
+desligado e **nada é bloqueado** — o app roda como antes.
+
+1. Gere a chave de API no painel do Asaas (*Integrações → Chave de API*).
+   Sandbox e produção são contas separadas; a chave começa com `$aact_hmlg_`
+   ou `$aact_prod_`, e o app deduz o ambiente por esse prefixo.
+2. Cadastre o webhook apontando para
+   `https://SEU-DOMINIO/api/webhooks/asaas`, com um token de autenticação, e
+   copie esse token para `ASAAS_WEBHOOK_TOKEN`. É ele que chega no header
+   `asaas-access-token` de cada aviso.
+3. Aplique a migration `20260929120000_assinaturas.sql` **antes** de publicar a
+   chave: sem a tabela `subscriptions`, o checkout quebra.
+
+Em sandbox, o Asaas não alcança `localhost`. A tela do Pix contorna isso
+perguntando ao Asaas se a cobrança foi paga enquanto está aberta; para testar
+o webhook de verdade, exponha a porta local com um túnel (ngrok, cloudflared)
+e cadastre essa URL.
+
+Para cobrar no cartão em produção, o checkout transparente precisa ser
+liberado pelo gerente da sua conta no Asaas. Em sandbox ele já funciona.
+
+### 6. Rodar
 
 ```bash
 npm run dev
@@ -217,6 +243,13 @@ antes de subir qualquer tela nova.
 - Toda Server Action valida a entrada com Zod antes de tocar no banco, e os
   totais nutricionais são recalculados no servidor: o cliente não define
   resultado.
+- **Dado de cartão não entra no nosso banco.** Número, validade e CVV existem
+  só dentro da Server Action que chama o Asaas, e não são gravados nem
+  registrados em log. Do que volta, guardamos apenas a bandeira e os quatro
+  últimos dígitos, para a pessoa reconhecer o cartão que está pagando.
+- O webhook do Asaas confere o header `asaas-access-token` com comparação de
+  tempo constante e recusa 401 sem ele. Cada evento é gravado uma vez em
+  `asaas_events`, então reentrega do mesmo aviso não credita duas vezes.
 
 ---
 
@@ -225,6 +258,8 @@ antes de subir qualquer tela nova.
 1. Importe o repositório na Vercel.
 2. Cadastre as mesmas variáveis de `.env.example` em *Settings → Environment
    Variables*, com `NEXT_PUBLIC_APP_URL` apontando para o domínio de produção.
+   `ASAAS_API_KEY` e `ASAAS_WEBHOOK_TOKEN` são segredos: marque como *Secret* e
+   nunca use o prefixo `NEXT_PUBLIC_` neles.
 3. O build padrão (`npm run build`) já funciona sem ajuste.
 
 Em produção `/design-system` responde 404 por decisão de projeto.

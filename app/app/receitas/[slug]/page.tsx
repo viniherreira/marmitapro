@@ -3,10 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Clock, Users } from "lucide-react";
 
+import { BloqueioDeAssinatura } from "@/components/assinatura/bloqueio";
 import { TextoRico } from "@/components/conteudo/texto-rico";
 import { CapaDaReceita } from "@/components/receitas/capa";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { situacaoDeAcesso } from "@/lib/data/assinaturas";
 import { obterReceita, ROTULO_OBJETIVO } from "@/lib/data/receitas";
 import { formatarDecimal, formatarInteiro, formatarMoeda } from "@/lib/format";
 
@@ -29,6 +31,17 @@ export default async function ReceitaPage({ params }: Parametros) {
 
   if (!receita) {
     notFound();
+  }
+
+  const { liberado } = await situacaoDeAcesso();
+
+  if (!liberado) {
+    return (
+      <BloqueioDeAssinatura
+        ferramenta="O banco de receitas"
+        texto="Cada receita traz o preparo, a ficha nutricional por porção e o custo dos ingredientes já calculado."
+      />
+    );
   }
 
   // Sequência da tabela nutricional da RDC 429/2020: a ficha sai na mesma

@@ -2,6 +2,7 @@ import {
   BookOpen,
   Calculator,
   ClipboardList,
+  CreditCard,
   LayoutDashboard,
   Scale,
   Users,
@@ -54,6 +55,12 @@ export const NAVEGACAO_APP: ItemDeNavegacao[] = [
     rotuloCurto: "Comunidade",
     icone: Users,
   },
+  {
+    href: "/app/assinatura",
+    rotulo: "Assinatura",
+    rotuloCurto: "Assinatura",
+    icone: CreditCard,
+  },
 ];
 
 /** Rotas já reservadas para a fase 2. Aparecem na sidebar, marcadas. */
@@ -73,7 +80,7 @@ export const NAVEGACAO_FASE_2: ItemDeNavegacao[] = [
  * painel, que é a primeira tela de quem abre o app no celular.
  */
 export const NAVEGACAO_MOBILE: ItemDeNavegacao[] = NAVEGACAO_APP.filter(
-  (item) => item.href !== "/app/comunidade"
+  (item) => item.href !== "/app/comunidade" && item.href !== "/app/assinatura"
 );
 
 export function rotaAtiva(pathname: string, href: string): boolean {

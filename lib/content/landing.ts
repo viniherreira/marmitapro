@@ -8,6 +8,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { PLANOS_DE_COBRANCA, precoCurto } from "@/lib/pagamentos/planos";
+
 /**
  * Conteúdo da página de vendas. Fica fora dos componentes para que a
  * copy possa ser revisada sem tocar em layout.
@@ -215,7 +217,7 @@ export const PLANOS: Plano[] = [
   {
     id: "mensal",
     nome: "Mensal",
-    preco: "R$ 39",
+    preco: precoCurto(PLANOS_DE_COBRANCA.mensal),
     periodo: "por mês",
     descricao: "Para experimentar sem compromisso de longo prazo.",
     destaque: false,
@@ -230,7 +232,7 @@ export const PLANOS: Plano[] = [
   {
     id: "anual",
     nome: "Anual",
-    preco: "R$ 290",
+    preco: precoCurto(PLANOS_DE_COBRANCA.anual),
     periodo: "por ano",
     equivalente: "equivale a R$ 24,17 por mês",
     descricao: "Para quem já decidiu que isso vira renda.",

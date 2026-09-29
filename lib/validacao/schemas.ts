@@ -142,3 +142,85 @@ export const cenarioFormSchema = z.object({
 export type CenarioFormInput = z.infer<typeof cenarioFormSchema>;
 
 export const removerPorIdSchema = z.object({ id: z.uuid("Registro inválido.") });
+
+// Assinatura ----------------------------------------------------------------
+
+/** Só dígitos: o formulário aceita máscara, o servidor guarda limpo. */
+const digitos = (valor: unknown) =>
+  typeof valor === "string" ? valor.replace(/\D/g, "") : valor;
+
+export const cpfCnpj = z.preprocess(
+  digitos,
+  z
+    .string()
+    .refine((v) => v.length === 11 || v.length === 14, "Informe um CPF ou CNPJ válido.")
+);
+
+export const cep = z.preprocess(
+  digitos,
+  z.string().length(8, "O CEP tem 8 dígitos.")
+);
+
+export const telefone = z.preprocess(
+  digitos,
+  z
+    .string()
+    .min(10, "Informe o DDD e o número.")
+    .max(11, "Telefone acima do tamanho esperado.")
+);
+
+/** Dados do titular exigidos pelo Asaas para cobrar no cartão. */
+const titularSchema = z.object({
+  nome: z.string().trim().min(3, "Informe o nome completo."),
+  email: z.email("Informe um e-mail válido."),
+  cpf_cnpj: cpfCnpj,
+  telefone,
+  cep,
+  numero_endereco: z
+    .string()
+    .trim()
+    .min(1, "Informe o número do endereço.")
+    .max(10, "Só o número, sem o complemento."),
+});
+
+export const planoSchema = z.enum(["mensal", "anual"], {
+  error: "Escolha um dos planos.",
+});
+
+export const assinaturaPixSchema = z.object({
+  plano: planoSchema,
+  titular: titularSchema,
+});
+
+export type AssinaturaPixInput = z.infer<typeof assinaturaPixSchema>;
+
+/**
+ * O cartão não passa pelo nosso banco: estes campos só existem entre o
+ * formulário e a chamada ao Asaas, dentro da mesma requisição.
+ */
+export const assinaturaCartaoSchema = assinaturaPixSchema.extend({
+  cartao: z.object({
+    nome_impresso: z.string().trim().min(3, "Informe o nome impresso no cartão."),
+    numero: z.preprocess(
+      digitos,
+      z
+        .string()
+        .min(13, "Número de cartão incompleto.")
+        .max(19, "Número de cartão acima do tamanho.")
+    ),
+    mes: z.preprocess(
+      digitos,
+      z.string().regex(/^(0[1-9]|1[0-2])$/, "Mês inválido.")
+    ),
+    ano: z.preprocess(
+      digitos,
+      z.string().regex(/^20\d{2}$/, "Use o ano com quatro dígitos.")
+    ),
+    cvv: z.preprocess(
+      digitos,
+      z.string().min(3, "CVV inválido.").max(4, "CVV inválido.")
+    ),
+  }),
+});
+
+export type AssinaturaCartaoInput = z.infer<typeof assinaturaCartaoSchema>;

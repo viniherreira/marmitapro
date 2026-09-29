@@ -43,26 +43,20 @@ Todas com `profile_id` e RLS no mesmo padrão das tabelas atuais.
 
 ---
 
-### 2. Integração de pagamento
+### 2. Integração de pagamento — **feita**
 
-**Escopo**
+Cobrança pelo Asaas, com checkout dentro do app (`/app/assinatura`): cartão de
+crédito e Pix, sem mandar o cliente para a página do Asaas. O webhook em
+`app/api/webhooks/asaas/` sincroniza a tabela `subscriptions`, e o bloqueio
+suave está de pé: sem assinatura ativa a trilha continua aberta e as
+calculadoras e o banco de receitas pedem o plano.
 
-- Assinatura mensal e anual, com os planos já descritos na landing
+Fica para depois:
+
+- Trocar o cartão sem cancelar e assinar de novo (depende de tokenização
+  liberada na conta de produção)
 - Período de teste e a garantia de sete dias anunciada na página de vendas
-- Bloqueio suave: usuário sem assinatura ativa mantém a trilha aberta e perde as
-  ferramentas de cálculo
-- Portal de gestão da assinatura (trocar cartão, cancelar, ver faturas)
-
-**Caminho técnico**
-
-Stripe ou um provedor nacional com Pix recorrente. O Clerk já entrega o
-identificador estável do usuário; falta uma tabela `subscriptions` e um webhook
-em `app/api/webhooks/` para sincronizar o status.
-
-**O que já existe**
-
-- A seção de planos na landing, com os dois preços definidos
-- O aviso, na própria seção, de que a cobrança entra na fase 2
+- Histórico de faturas dentro do app
 
 ---
 

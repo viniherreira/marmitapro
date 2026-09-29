@@ -32,6 +32,8 @@ export const env = {
   supabaseUrl: valor("NEXT_PUBLIC_SUPABASE_URL"),
   supabaseAnonKey: valor("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
   supabaseServiceRoleKey: valor("SUPABASE_SERVICE_ROLE_KEY"),
+  asaasApiKey: valor("ASAAS_API_KEY"),
+  asaasWebhookToken: valor("ASAAS_WEBHOOK_TOKEN"),
 } as const;
 
 /** O Clerk só é montado quando as duas chaves existem e são reais. */
@@ -43,6 +45,16 @@ export const supabaseConfigurado =
   env.supabaseUrl.length > 0 && env.supabaseServiceRoleKey.length > 0;
 
 export const appConfigurado = clerkConfigurado && supabaseConfigurado;
+
+/**
+ * A cobrança só existe quando há chave do Asaas.
+ *
+ * Enquanto não houver, o checkout mostra que está desligado e nada é
+ * bloqueado — o app segue como está hoje, com tudo liberado. É o mesmo
+ * princípio do resto do projeto: sem credencial, o recurso se desliga em vez
+ * de quebrar a tela.
+ */
+export const asaasConfigurado = env.asaasApiKey.length > 0;
 
 /**
  * Se o app está rodando numa hospedagem em vez da máquina de alguém.

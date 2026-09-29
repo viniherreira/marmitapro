@@ -76,8 +76,9 @@ export function SecaoPlanos() {
       </div>
 
       <p className="t-small mt-8 text-muted">
-        Pagamento e cobrança recorrente entram na fase 2. Neste momento a
-        criação de conta libera o acesso completo para avaliação.
+        Você cria a conta e assina por dentro do app, no cartão ou no Pix.
+        A trilha do curso fica aberta mesmo sem assinatura; as calculadoras e
+        o banco de receitas fazem parte do plano.
       </p>
     </Secao>
   );

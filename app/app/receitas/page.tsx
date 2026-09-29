@@ -4,11 +4,13 @@ import { Suspense } from "react";
 import { Utensils } from "lucide-react";
 
 import { CabecalhoDePagina } from "@/components/app/cabecalho-de-pagina";
+import { BloqueioDeAssinatura } from "@/components/assinatura/bloqueio";
 import { CapaDaReceita } from "@/components/receitas/capa";
 import { FiltrosDeReceitas } from "@/components/receitas/filtros";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { situacaoDeAcesso } from "@/lib/data/assinaturas";
 import { listarReceitas, ROTULO_OBJETIVO } from "@/lib/data/receitas";
 import { formatarDecimal, formatarInteiro, formatarMoeda } from "@/lib/format";
 import type { ObjetivoReceita } from "@/types/database";
@@ -33,6 +35,23 @@ export default async function ReceitasPage({
   searchParams: Promise<Busca>;
 }) {
   const parametros = await searchParams;
+  const { liberado } = await situacaoDeAcesso();
+
+  if (!liberado) {
+    return (
+      <div className="space-y-8">
+        <CabecalhoDePagina
+          sobrelinha="Cardápio"
+          titulo="Banco de receitas"
+          descricao="Receitas com modo de preparo, ficha nutricional por porção e custo estimado."
+        />
+        <BloqueioDeAssinatura
+          ferramenta="O banco de receitas"
+          texto="São dezenas de marmitas com o preparo, a ficha por porção e o custo dos ingredientes já calculado — prontas para entrar no seu cardápio."
+        />
+      </div>
+    );
+  }
 
   const objetivo = OBJETIVOS_VALIDOS.includes(
     parametros.objetivo as ObjetivoReceita
