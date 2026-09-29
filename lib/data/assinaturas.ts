@@ -33,21 +33,20 @@ export async function assinaturaDoPerfil(
 /**
  * Uma assinatura dá acesso enquanto `acesso_ate` não venceu.
  *
- * A data manda mais que o status porque ela é escrita no pagamento
+ * A data manda mais que o status porque ela só é escrita por pagamento
  * confirmado, que é o fato: quem pagou o ano tem o ano, mesmo que um webhook
- * de atraso chegue fora de ordem depois. Cancelada corta na hora — nesse caso
- * o Asaas já não cobra de novo, e o combinado é que o acesso vai até o fim do
- * período pago, então também respeitamos a data.
+ * de atraso chegue fora de ordem depois, e mesmo que tenha cancelado ou
+ * esteja trocando de plano — o período pago continua valendo.
+ *
+ * O único caminho que tira acesso antes da data é estorno ou chargeback, e
+ * ele faz isso apagando a data. Sem data, vale só o status.
  */
 export function assinaturaDaAcesso(assinatura: Assinatura | null): boolean {
   if (!assinatura) return false;
 
-  const status = assinatura.status as StatusDaAssinatura;
-  if (status === "pendente") return false;
+  if (assinatura.acesso_ate) return assinatura.acesso_ate >= hojeEmIso();
 
-  if (!assinatura.acesso_ate) return status === "ativa";
-
-  return assinatura.acesso_ate >= hojeEmIso();
+  return (assinatura.status as StatusDaAssinatura) === "ativa";
 }
 
 /** Data de hoje em "YYYY-MM-DD", que é como o Postgres devolve `date`. */

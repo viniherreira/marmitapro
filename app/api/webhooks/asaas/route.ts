@@ -98,17 +98,37 @@ export async function POST(requisicao: Request) {
     return NextResponse.json({ recebido: true, ignorado: tipo });
   }
 
-  const assinatura = await assinaturaPorIdDoAsaas(idDaAssinatura);
-  if (!assinatura) {
-    return NextResponse.json({ recebido: true, desconhecida: idDaAssinatura });
+  try {
+    await aplicarEvento(tipo, idDaAssinatura, evento.dateCreated);
+  } catch {
+    // O registro do evento sai junto com a falha. Sem isso, a reentrega do
+    // Asaas esbarraria na idempotência como "repetida" e o pagamento nunca
+    // viraria acesso — o evento ficaria marcado como visto sem ter sido
+    // aplicado. Apagando, o 500 abaixo faz o Asaas tentar de novo do zero.
+    if (idDoEvento) {
+      await supabase.from("asaas_events").delete().eq("id", idDoEvento);
+    }
+    return NextResponse.json({ erro: "falha ao processar" }, { status: 500 });
   }
 
-  const quando = evento.dateCreated ? new Date(evento.dateCreated) : new Date();
+  return NextResponse.json({ recebido: true });
+}
+
+async function aplicarEvento(
+  tipo: string,
+  idDaAssinatura: string,
+  dataDoEvento: string | undefined
+): Promise<void> {
+  const assinatura = await assinaturaPorIdDoAsaas(idDaAssinatura);
+
+  // Assinatura que não é nossa (criada à mão no painel, ou de outro sistema
+  // na mesma conta) não é erro: não há o que atualizar.
+  if (!assinatura) return;
 
   switch (tipo) {
     case "PAYMENT_CONFIRMED":
     case "PAYMENT_RECEIVED":
-      await registrarPagamentoConfirmado(assinatura, quando);
+      await registrarPagamentoConfirmado(assinatura, dataDoAsaas(dataDoEvento));
       break;
 
     case "PAYMENT_OVERDUE":
@@ -129,6 +149,21 @@ export async function POST(requisicao: Request) {
       // Os demais eventos ficam gravados em asaas_events e não mudam acesso.
       break;
   }
+}
 
-  return NextResponse.json({ recebido: true });
+/**
+ * O Asaas manda datas como "2026-09-29 14:03:11", no horário de Brasília e
+ * sem fuso. Lida como veio, a data depende do fuso do servidor; aqui ela é
+ * ancorada em -03:00. Qualquer formato inesperado cai no agora, que erra por
+ * segundos — melhor que derrubar o processamento de um pagamento.
+ */
+function dataDoAsaas(bruta: string | undefined): Date {
+  if (!bruta) return new Date();
+
+  const iso = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(bruta)
+    ? `${bruta.replace(" ", "T")}-03:00`
+    : bruta;
+
+  const data = new Date(iso);
+  return Number.isNaN(data.getTime()) ? new Date() : data;
 }

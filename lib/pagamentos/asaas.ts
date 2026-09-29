@@ -77,7 +77,16 @@ export async function chamarAsaas<T>(
   });
 
   const texto = await resposta.text();
-  const dados = texto ? (JSON.parse(texto) as unknown) : null;
+
+  // Em instabilidade o Asaas (ou o proxy na frente dele) pode devolver uma
+  // página HTML. Sem esta guarda o JSON.parse estouraria e esconderia o
+  // status real da resposta, que é o que decide a mensagem de erro.
+  let dados: unknown = null;
+  try {
+    dados = texto ? JSON.parse(texto) : null;
+  } catch {
+    dados = null;
+  }
 
   if (!resposta.ok) {
     const primeiro = (dados as RespostaDeErro | null)?.errors?.[0];

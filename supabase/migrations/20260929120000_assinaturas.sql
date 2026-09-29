@@ -37,9 +37,6 @@ create table public.subscriptions (
   updated_at timestamptz not null default now()
 );
 
-create index subscriptions_asaas_subscription_id_idx
-  on public.subscriptions (asaas_subscription_id);
-
 create trigger subscriptions_updated_at
   before update on public.subscriptions
   for each row execute function public.tocar_updated_at();

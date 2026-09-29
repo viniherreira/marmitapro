@@ -15,6 +15,7 @@ import {
   obterCobranca,
   primeiraCobrancaDaAssinatura,
   qrCodeDaCobranca,
+  type CobrancaAsaas,
 } from "@/lib/pagamentos/asaas";
 import { planoPorId } from "@/lib/pagamentos/planos";
 import {
@@ -86,6 +87,11 @@ type Titular = {
  * O espelho é gravado com `upsert` por perfil: quem cancelou e volta, ou quem
  * teve uma tentativa pendente, reaproveita a mesma linha em vez de acumular
  * assinaturas mortas.
+ *
+ * A assinatura anterior, se ainda viva no Asaas, é cancelada — mas só depois
+ * que a nova foi criada. Na ordem inversa, um cartão recusado deixaria a
+ * pessoa sem nenhuma das duas. E o período já pago (`acesso_ate`) passa para
+ * a linha nova: trocar de cartão ou de plano não pode custar dias pagos.
  */
 async function abrirAssinatura(parametros: {
   perfilId: string;
@@ -93,6 +99,7 @@ async function abrirAssinatura(parametros: {
   metodo: "CREDIT_CARD" | "PIX";
   titular: Titular;
   extras: Record<string, unknown>;
+  anterior: Assinatura | null;
 }): Promise<Assinatura> {
   const plano = planoPorId(parametros.plano);
   if (!plano) throw new Error("Plano desconhecido.");
@@ -130,7 +137,7 @@ async function abrirAssinatura(parametros: {
         valor: plano.valor,
         asaas_customer_id: clienteId,
         asaas_subscription_id: assinaturaRemota.id,
-        acesso_ate: null,
+        acesso_ate: parametros.anterior?.acesso_ate ?? null,
         proximo_vencimento: assinaturaRemota.nextDueDate ?? null,
         cartao_bandeira: assinaturaRemota.creditCard?.creditCardBrand ?? null,
         cartao_final: assinaturaRemota.creditCard?.creditCardNumber ?? null,
@@ -141,7 +148,48 @@ async function abrirAssinatura(parametros: {
     .single();
 
   if (error) throw new Error(`Falha ao gravar a assinatura: ${error.message}`);
+
+  const anterior = parametros.anterior;
+  if (
+    anterior &&
+    anterior.status !== "cancelada" &&
+    anterior.asaas_subscription_id !== assinaturaRemota.id
+  ) {
+    // Sem isto, um Pix gerado e não pago continuaria vivo no Asaas, gerando
+    // cobrança todo mês para quem já assinou de outro jeito.
+    await cancelarAssinatura(anterior.asaas_subscription_id).catch(() => {
+      // Já removida no Asaas (404) ou falha de rede: a nova assinatura está
+      // gravada, e não vale derrubar uma venda concluída por causa da antiga.
+    });
+  }
+
   return data;
+}
+
+/** A cobrança Pix ainda em aberto de uma tentativa anterior, se servir. */
+async function pixEmAberto(
+  assinatura: Assinatura | null,
+  plano: string
+): Promise<{ assinatura: Assinatura; cobranca: CobrancaAsaas } | null> {
+  if (
+    !assinatura ||
+    assinatura.status !== "pendente" ||
+    assinatura.metodo !== "PIX" ||
+    assinatura.plano !== plano
+  ) {
+    return null;
+  }
+
+  const cobranca = await primeiraCobrancaDaAssinatura(
+    assinatura.asaas_subscription_id
+  ).catch(() => null);
+
+  return cobranca?.status === "PENDING" ? { assinatura, cobranca } : null;
+}
+
+/** Só quem tem assinatura ativa e em dia está impedido de assinar de novo. */
+function jaAssinante(assinatura: Assinatura | null): boolean {
+  return assinatura?.status === "ativa" && assinaturaDaAcesso(assinatura);
 }
 
 /**
@@ -166,7 +214,7 @@ export async function assinarComCartao(
     const perfil = await garantirPerfil();
 
     const jaTem = await assinaturaDoPerfil(perfil.id);
-    if (jaTem && assinaturaDaAcesso(jaTem) && jaTem.status !== "cancelada") {
+    if (jaAssinante(jaTem)) {
       return { ok: false, erro: "Você já tem uma assinatura ativa." };
     }
 
@@ -175,6 +223,7 @@ export async function assinarComCartao(
       plano,
       metodo: "CREDIT_CARD",
       titular,
+      anterior: jaTem,
       extras: {
         creditCard: {
           holderName: cartao.nome_impresso,
@@ -231,21 +280,29 @@ export async function assinarComPix(entrada: unknown): Promise<ResultadoDoPix> {
     const perfil = await garantirPerfil();
 
     const jaTem = await assinaturaDoPerfil(perfil.id);
-    if (jaTem && assinaturaDaAcesso(jaTem) && jaTem.status !== "cancelada") {
+    if (jaAssinante(jaTem)) {
       return { ok: false, erro: "Você já tem uma assinatura ativa." };
     }
 
-    const assinatura = await abrirAssinatura({
-      perfilId: perfil.id,
-      plano,
-      metodo: "PIX",
-      titular,
-      extras: {},
-    });
+    // Quem gerou o Pix, fechou a tela e voltou recebe o mesmo QR, desde que
+    // seja o mesmo plano e a cobrança ainda esteja em aberto. Gerar outro a
+    // cada visita espalharia cobranças pendentes na conta do Asaas.
+    const pendente = await pixEmAberto(jaTem, plano);
 
-    const cobranca = await primeiraCobrancaDaAssinatura(
-      assinatura.asaas_subscription_id
-    );
+    const assinatura =
+      pendente?.assinatura ??
+      (await abrirAssinatura({
+        perfilId: perfil.id,
+        plano,
+        metodo: "PIX",
+        titular,
+        anterior: jaTem,
+        extras: {},
+      }));
+
+    const cobranca =
+      pendente?.cobranca ??
+      (await primeiraCobrancaDaAssinatura(assinatura.asaas_subscription_id));
     if (!cobranca) {
       return {
         ok: false,
