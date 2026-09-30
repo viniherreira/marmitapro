@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { MARGEM_MAXIMA } from "@/lib/calculos/precificacao";
+import type { IdDePlano } from "@/lib/pagamentos/planos";
 
 /** Aceita "12,50" e "12.50" — o usuário digita como fala. */
 const numeroBR = z.preprocess((valor) => {
@@ -183,7 +184,7 @@ const titularSchema = z.object({
     .max(10, "Só o número, sem o complemento."),
 });
 
-export const planoSchema = z.enum(["mensal", "anual"], {
+export const planoSchema = z.enum(["basico", "mensal", "anual"] satisfies IdDePlano[], {
   error: "Escolha um dos planos.",
 });
 

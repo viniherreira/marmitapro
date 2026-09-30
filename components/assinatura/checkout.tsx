@@ -41,6 +41,10 @@ type PlanoNaTela = {
   periodo: string;
   equivalente?: string;
   destaque: boolean;
+  /** Etiqueta do cartão do plano. Precisa ser verdade para todos os planos à vista. */
+  selo?: string;
+  /** Falso abaixo de R$ 10: o Asaas não emite boleto nesse valor. */
+  aceitaBoleto: boolean;
 };
 
 type Metodo = "PIX" | "CREDIT_CARD" | "BOLETO";
@@ -155,6 +159,17 @@ export function Checkout({ planos }: { planos: PlanoNaTela[] }) {
 
   const escolhido = planos.find((p) => p.id === plano) ?? planos[0];
 
+  /**
+   * Trocar para um plano sem boleto com o boleto já marcado passa a forma de
+   * pagamento para o Pix. Deixar marcada uma opção que o plano não aceita só
+   * adiaria o problema para o clique em "Gerar boleto".
+   */
+  function escolherPlano(id: IdDePlano) {
+    setPlano(id);
+    const novo = planos.find((p) => p.id === id);
+    if (metodo === "BOLETO" && novo && !novo.aceitaBoleto) setMetodo("PIX");
+  }
+
   function enviar(dados: Formulario) {
     iniciarEnvio(async () => {
       const titular = {
@@ -236,12 +251,12 @@ export function Checkout({ planos }: { planos: PlanoNaTela[] }) {
       <section>
         <h2 className="t-eyebrow">1. Escolha o plano</h2>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
           {planos.map((item) => (
             <button
               key={item.id}
               type="button"
-              onClick={() => setPlano(item.id)}
+              onClick={() => escolherPlano(item.id)}
               aria-pressed={item.id === plano}
               className={cn(
                 "rounded-xl border p-5 text-left transition-[border-color,background-color]",
@@ -252,7 +267,7 @@ export function Checkout({ planos }: { planos: PlanoNaTela[] }) {
             >
               <div className="flex items-center justify-between gap-3">
                 <span className="t-h3">{item.nome}</span>
-                {item.destaque ? <Badge variant="accent">Melhor valor</Badge> : null}
+                {item.selo ? <Badge variant="accent">{item.selo}</Badge> : null}
               </div>
               <p className="mt-3 flex items-baseline gap-2">
                 <span className="t-metric" data-numeric>
@@ -291,7 +306,12 @@ export function Checkout({ planos }: { planos: PlanoNaTela[] }) {
             aoEscolher={() => setMetodo("BOLETO")}
             icone={Barcode}
             titulo="Boleto"
-            texto="Libera quando compensar, em até 1 dia útil."
+            texto={
+              escolhido.aceitaBoleto
+                ? "Libera quando compensar, em até 1 dia útil."
+                : "Disponível a partir de R$ 10. Neste plano, use Pix ou cartão."
+            }
+            desabilitado={!escolhido.aceitaBoleto}
           />
         </div>
       </section>
@@ -433,23 +453,27 @@ function BotaoDeMetodo({
   icone: Icone,
   titulo,
   texto,
+  desabilitado = false,
 }: {
   ativo: boolean;
   aoEscolher: () => void;
   icone: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
   titulo: string;
   texto: string;
+  desabilitado?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={aoEscolher}
       aria-pressed={ativo}
+      disabled={desabilitado}
       className={cn(
         "flex items-start gap-3 rounded-xl border p-5 text-left transition-[border-color,background-color]",
         ativo
           ? "border-primary bg-primary/5 ring-1 ring-primary/15"
-          : "border-border bg-surface hover:border-border-strong"
+          : "border-border bg-surface hover:border-border-strong",
+        "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border"
       )}
     >
       <Icone className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />

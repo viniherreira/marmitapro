@@ -22,7 +22,13 @@ import {
   qrCodeDaCobranca,
   type CobrancaAsaas,
 } from "@/lib/pagamentos/asaas";
-import { planoPorId, type PlanoDeCobranca } from "@/lib/pagamentos/planos";
+import { formatarMoeda } from "@/lib/format";
+import {
+  VALOR_MINIMO_DO_BOLETO,
+  aceitaBoleto,
+  planoPorId,
+  type PlanoDeCobranca,
+} from "@/lib/pagamentos/planos";
 import {
   pagamentoInicialRecebido,
   registrarCancelamento,
@@ -565,6 +571,16 @@ export async function assinarComBoleto(
 
   try {
     const plano = exigirPlano(analise.data.plano);
+
+    // O Asaas recusa boleto abaixo do mínimo. A tela já desabilita a opção,
+    // mas a regra vale aqui também: a ação pode ser chamada direto.
+    if (!aceitaBoleto(plano)) {
+      return {
+        ok: false,
+        erro: `O boleto só está disponível para planos a partir de ${formatarMoeda(VALOR_MINIMO_DO_BOLETO)}. No plano ${plano.nome}, pague com Pix ou cartão.`,
+      };
+    }
+
     const perfil = await garantirPerfil();
 
     const jaTem = await assinaturaDoPerfil(perfil.id);

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Lock } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { PLANOS_DE_COBRANCA } from "@/lib/pagamentos/planos";
+import { planoMaisBarato } from "@/lib/pagamentos/planos";
 import { formatarMoeda } from "@/lib/format";
 
 /**
@@ -20,7 +20,7 @@ export function BloqueioDeAssinatura({
   ferramenta: string;
   texto: string;
 }) {
-  const mensal = PLANOS_DE_COBRANCA.mensal;
+  const maisBarato = planoMaisBarato();
 
   return (
     <div className="rounded-xl border border-border bg-surface-sunken/50 p-8 text-center sm:p-12">
@@ -34,7 +34,7 @@ export function BloqueioDeAssinatura({
       <div className="mt-7 flex flex-col items-center gap-3">
         <Button asChild size="lg">
           <Link href="/app/assinatura">
-            Assinar por {formatarMoeda(mensal.valor)} por mês
+            Assinar a partir de {formatarMoeda(maisBarato.valor)} por mês
           </Link>
         </Button>
         <p className="t-small text-muted">

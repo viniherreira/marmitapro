@@ -215,6 +215,22 @@ export type Plano = {
 
 export const PLANOS: Plano[] = [
   {
+    id: "basico",
+    nome: "Básico",
+    preco: precoCurto(PLANOS_DE_COBRANCA.basico),
+    periodo: "por mês",
+    descricao: "Para começar gastando pouco.",
+    destaque: true,
+    inclui: [
+      "Trilha completa, cinco módulos",
+      "Calculadora de macros e de precificação",
+      "Banco de receitas com ficha e custo",
+      "Controle de pedidos da semana",
+      "Pagamento no Pix ou no cartão",
+      "Cancela quando quiser",
+    ],
+  },
+  {
     id: "mensal",
     nome: "Mensal",
     preco: precoCurto(PLANOS_DE_COBRANCA.mensal),
@@ -236,11 +252,12 @@ export const PLANOS: Plano[] = [
     periodo: "por ano",
     equivalente: "equivale a R$ 24,17 por mês",
     descricao: "Para quem já decidiu que isso vira renda.",
-    destaque: true,
-    selo: "Melhor valor",
+    // Sem o selo "Melhor valor": com o Básico a R$ 5 por mês, o anual deixou
+    // de ser o mais barato, e o selo passaria a prometer o que não entrega.
+    destaque: false,
     inclui: [
       "Tudo do plano mensal",
-      "Dois meses e meio de economia",
+      "Dois meses e meio de economia sobre o mensal",
       "Acesso às ferramentas da fase 2 sem custo extra",
       "Prioridade no suporte por e-mail",
     ],

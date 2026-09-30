@@ -13,10 +13,10 @@ export function SecaoPlanos() {
       <AberturaDeSecao
         sobrelinha="Planos"
         titulo="Um preço, tudo liberado"
-        texto="Não existe versão capada. Os dois planos dão acesso à trilha inteira e às duas calculadoras — muda só a forma de pagar."
+        texto="Não existe versão capada. Todos os planos dão acesso à trilha inteira, às calculadoras e aos pedidos — muda só quanto e como você paga."
       />
 
-      <div className="mt-14 grid gap-6 lg:grid-cols-2">
+      <div className="mt-14 grid gap-6 lg:grid-cols-3">
         {PLANOS.map((plano) => (
           <div
             key={plano.id}

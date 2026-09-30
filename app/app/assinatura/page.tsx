@@ -5,7 +5,7 @@ import { Checkout } from "@/components/assinatura/checkout";
 import { SituacaoDaAssinatura } from "@/components/assinatura/situacao";
 import { Alert } from "@/components/ui/alert";
 import { assinaturaDaAcesso, situacaoDeAcesso } from "@/lib/data/assinaturas";
-import { PLANOS_DE_COBRANCA } from "@/lib/pagamentos/planos";
+import { PLANOS_DE_COBRANCA, aceitaBoleto } from "@/lib/pagamentos/planos";
 
 export const metadata: Metadata = {
   title: "Assinatura",
@@ -15,23 +15,36 @@ export const metadata: Metadata = {
 /** A tela precisa refletir o pagamento que acabou de cair, nunca um cache. */
 export const dynamic = "force-dynamic";
 
+const { basico, mensal, anual } = PLANOS_DE_COBRANCA;
+
 const PLANOS_NA_TELA = [
   {
-    id: PLANOS_DE_COBRANCA.mensal.id,
-    nome: PLANOS_DE_COBRANCA.mensal.nome,
-    valor: PLANOS_DE_COBRANCA.mensal.valor,
+    id: basico.id,
+    nome: basico.nome,
+    valor: basico.valor,
     periodo: "por mês",
-    destaque: false,
+    destaque: true,
+    selo: "Menor preço",
+    aceitaBoleto: aceitaBoleto(basico),
   },
   {
-    id: PLANOS_DE_COBRANCA.anual.id,
-    nome: PLANOS_DE_COBRANCA.anual.nome,
-    valor: PLANOS_DE_COBRANCA.anual.valor,
+    id: mensal.id,
+    nome: mensal.nome,
+    valor: mensal.valor,
+    periodo: "por mês",
+    destaque: false,
+    aceitaBoleto: aceitaBoleto(mensal),
+  },
+  {
+    id: anual.id,
+    nome: anual.nome,
+    valor: anual.valor,
     periodo: "por ano",
-    equivalente: `equivale a R$ ${(PLANOS_DE_COBRANCA.anual.valor / 12)
+    equivalente: `equivale a R$ ${(anual.valor / 12)
       .toFixed(2)
       .replace(".", ",")} por mês`,
-    destaque: true,
+    destaque: false,
+    aceitaBoleto: aceitaBoleto(anual),
   },
 ];
 
