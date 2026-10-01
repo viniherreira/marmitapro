@@ -16,7 +16,7 @@ export function SecaoPlanos() {
         texto="Não existe versão capada. Todos os planos dão acesso à trilha inteira, às calculadoras e aos pedidos — muda só quanto e como você paga."
       />
 
-      <div className="mt-14 grid gap-6 lg:grid-cols-3">
+      <div className="mt-14 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
         {PLANOS.map((plano) => (
           <div
             key={plano.id}

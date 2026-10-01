@@ -124,6 +124,8 @@ export type CobrancaAsaas = {
   invoiceUrl?: string;
   /** PDF do boleto, quando a cobrança é BOLETO. */
   bankSlipUrl?: string | null;
+  /** Assinatura que gerou a cobrança, quando há. */
+  subscription?: string | null;
 };
 
 export type LinhaDigitavel = {
@@ -212,6 +214,20 @@ export async function primeiraCobrancaDaAssinatura(
     `/subscriptions/${assinaturaId}/payments?limit=1`
   );
   return lista.data?.[0] ?? null;
+}
+
+/**
+ * As cobranças recentes de uma assinatura. Uma assinatura tem uma cobrança
+ * por ciclo, então vinte cobrem quase dois anos do plano mensal — bem mais do
+ * que a régua de cobrança precisa olhar.
+ */
+export async function cobrancasDaAssinatura(
+  assinaturaId: string
+): Promise<CobrancaAsaas[]> {
+  const lista = await chamarAsaas<{ data: CobrancaAsaas[] }>(
+    `/subscriptions/${assinaturaId}/payments?limit=20`
+  );
+  return lista.data ?? [];
 }
 
 export async function obterCobranca(id: string) {

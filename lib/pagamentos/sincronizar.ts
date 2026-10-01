@@ -7,13 +7,18 @@
  * mesmas funções, então o resultado não depende de qual chegou primeiro.
  */
 
-import { cobrancasRecebidasDesde, obterAssinatura } from "@/lib/pagamentos/asaas";
+import {
+  ErroDoAsaas,
+  cancelarAssinatura,
+  cancelarAutorizacaoPixAutomatico,
+  cobrancasRecebidasDesde,
+  obterAssinatura,
+} from "@/lib/pagamentos/asaas";
+import { DIAS_DE_CARENCIA } from "@/lib/pagamentos/inadimplencia";
 import { planoPorId } from "@/lib/pagamentos/planos";
 import { clienteAdmin } from "@/lib/supabase/server";
 import type { Assinatura } from "@/types/database";
 
-/** Folga entre o vencimento e a confirmação da cobrança seguinte. */
-const DIAS_DE_FOLGA = 3;
 
 export async function assinaturaPorIdDoAsaas(
   asaasSubscriptionId: string
@@ -102,7 +107,7 @@ export async function registrarPagamentoConfirmado(
   const base = quando.toISOString().slice(0, 10);
 
   const acessoAte = proximoVencimento
-    ? somarDias(proximoVencimento, DIAS_DE_FOLGA)
+    ? somarDias(proximoVencimento, DIAS_DE_CARENCIA)
     : somarDias(base, plano?.diasDeAcesso ?? 33);
 
   await atualizar(assinatura.id, {
@@ -134,6 +139,41 @@ export async function pagamentoInicialRecebido(
     abertura.toISOString().slice(0, 10)
   ).catch(() => []);
   return recebidas.some((c) => Number(c.value) === Number(assinatura.valor));
+}
+
+/**
+ * Encerra no Asaas tudo o que uma assinatura mantém vivo: a autorização do
+ * Pix Automático e a assinatura que gera as cobranças.
+ *
+ * Com `estrito`, qualquer falha sobe — é o cancelamento pedido pelo usuário,
+ * que precisa saber se deu certo. Sem ele, as falhas são engolidas: é a
+ * limpeza da tentativa anterior depois de uma venda nova concluída, e uma
+ * venda feita não pode ser desfeita por causa de uma sobra antiga, que pode
+ * já nem existir no Asaas.
+ */
+export async function encerrarNoAsaas(
+  assinatura: Assinatura,
+  { estrito }: { estrito: boolean }
+): Promise<void> {
+  const tarefas: Promise<unknown>[] = [];
+  if (assinatura.asaas_authorization_id) {
+    tarefas.push(cancelarAutorizacaoPixAutomatico(assinatura.asaas_authorization_id));
+  }
+  if (assinatura.asaas_subscription_id) {
+    tarefas.push(cancelarAssinatura(assinatura.asaas_subscription_id));
+  }
+
+  const resultados = await Promise.allSettled(tarefas);
+  if (!estrito) return;
+
+  for (const resultado of resultados) {
+    if (resultado.status === "fulfilled") continue;
+    // 404: já não existe no Asaas, que é exatamente o que se queria.
+    if (resultado.reason instanceof ErroDoAsaas && resultado.reason.status === 404) {
+      continue;
+    }
+    throw resultado.reason;
+  }
 }
 
 /** Venceu e não pagou. O acesso ainda respeita `acesso_ate`, que tem folga. */

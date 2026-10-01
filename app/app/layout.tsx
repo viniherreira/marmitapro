@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 
 import { BarraInferior } from "@/components/app/barra-inferior";
+import { FaixaDeCobranca } from "@/components/assinatura/faixa-de-cobranca";
 import { Sidebar } from "@/components/app/sidebar";
 import { Logo } from "@/components/brand/logo";
 import { ConfiguracaoPendente } from "@/components/configuracao-pendente";
@@ -49,6 +50,7 @@ export default async function AppLayout({
         </header>
 
         <main className="mx-auto max-w-5xl px-5 pb-28 pt-8 sm:px-8 sm:pt-10 lg:pb-16">
+          <FaixaDeCobranca />
           {children}
         </main>
       </div>

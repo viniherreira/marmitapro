@@ -10,8 +10,8 @@ import { hojeNoBrasil, somarDias, somarMeses } from "@/lib/datas";
 import { asaasConfigurado } from "@/lib/env";
 import {
   ErroDoAsaas,
-  cancelarAssinatura,
   cancelarAutorizacaoPixAutomatico,
+  cobrancasDaAssinatura,
   criarAssinatura,
   criarAutorizacaoPixAutomatico,
   garantirClienteNoAsaas,
@@ -30,6 +30,7 @@ import {
   type PlanoDeCobranca,
 } from "@/lib/pagamentos/planos";
 import {
+  encerrarNoAsaas,
   pagamentoInicialRecebido,
   registrarCancelamento,
   registrarPagamentoConfirmado,
@@ -182,41 +183,6 @@ async function gravarEspelho(campos: {
 
   if (error) throw new Error(`Falha ao gravar a assinatura: ${error.message}`);
   return data;
-}
-
-/**
- * Encerra no Asaas tudo o que uma assinatura mantém vivo: a autorização do
- * Pix Automático e a assinatura que gera as cobranças.
- *
- * Com `estrito`, qualquer falha sobe — é o cancelamento pedido pelo usuário,
- * que precisa saber se deu certo. Sem ele, as falhas são engolidas: é a
- * limpeza da tentativa anterior depois de uma venda nova concluída, e uma
- * venda feita não pode ser desfeita por causa de uma sobra antiga, que pode
- * já nem existir no Asaas.
- */
-async function encerrarNoAsaas(
-  assinatura: Assinatura,
-  { estrito }: { estrito: boolean }
-): Promise<void> {
-  const tarefas: Promise<unknown>[] = [];
-  if (assinatura.asaas_authorization_id) {
-    tarefas.push(cancelarAutorizacaoPixAutomatico(assinatura.asaas_authorization_id));
-  }
-  if (assinatura.asaas_subscription_id) {
-    tarefas.push(cancelarAssinatura(assinatura.asaas_subscription_id));
-  }
-
-  const resultados = await Promise.allSettled(tarefas);
-  if (!estrito) return;
-
-  for (const resultado of resultados) {
-    if (resultado.status === "fulfilled") continue;
-    // 404: já não existe no Asaas, que é exatamente o que se queria.
-    if (resultado.reason instanceof ErroDoAsaas && resultado.reason.status === 404) {
-      continue;
-    }
-    throw resultado.reason;
-  }
 }
 
 /**
@@ -715,5 +681,117 @@ export async function cancelarMinhaAssinatura(): Promise<ResultadoDeAcao> {
     return { ok: true };
   } catch (erro) {
     return { ok: false, erro: comoErro(erro) };
+  }
+}
+
+// --- pagar a cobrança em aberto ---------------------------------------------
+
+export type CobrancaParaPagarAgora =
+  | { ok: true; cobrancaId: string; tipo: "pix"; qrCode: QrCodeParaPagar }
+  | { ok: true; cobrancaId: string; tipo: "boleto"; boleto: BoletoParaPagar }
+  | { ok: false; erro: string };
+
+/** Cobranças ainda pagáveis: vencida primeiro, depois a que vai vencer. */
+const EM_ABERTO = ["OVERDUE", "PENDING"];
+
+/**
+ * A cobrança da renovação, para pagar sem sair do app: o Pix dela ou o boleto
+ * dela, conforme a forma da assinatura.
+ *
+ * É o destino do aviso "seu plano vence em 3 dias". Só existe para Pix comum
+ * e boleto — cartão e Pix Automático renovam sozinhos.
+ */
+export async function cobrancaParaPagarAgora(): Promise<CobrancaParaPagarAgora> {
+  try {
+    const perfil = await garantirPerfil();
+    const assinatura = await assinaturaDoPerfil(perfil.id);
+
+    if (
+      !assinatura?.asaas_subscription_id ||
+      (assinatura.metodo !== "PIX" && assinatura.metodo !== "BOLETO")
+    ) {
+      return { ok: false, erro: "Não há cobrança para pagar por aqui." };
+    }
+
+    const cobrancas = await cobrancasDaAssinatura(assinatura.asaas_subscription_id);
+    const aberta = cobrancas
+      .filter((c) => EM_ABERTO.includes(c.status))
+      .sort(
+        (a, b) =>
+          EM_ABERTO.indexOf(a.status) - EM_ABERTO.indexOf(b.status) ||
+          a.dueDate.localeCompare(b.dueDate)
+      )[0];
+
+    if (!aberta) {
+      return {
+        ok: false,
+        erro: "A próxima cobrança ainda não foi gerada. Ela chega no seu e-mail uns dias antes do vencimento.",
+      };
+    }
+
+    if (assinatura.metodo === "PIX") {
+      const qr = await qrCodeDaCobranca(aberta.id);
+      return {
+        ok: true,
+        cobrancaId: aberta.id,
+        tipo: "pix",
+        qrCode: {
+          imagemBase64: qr.encodedImage,
+          copiaECola: qr.payload,
+          expiraEm: qr.expirationDate,
+          valor: aberta.value,
+        },
+      };
+    }
+
+    const [linha, pix] = await Promise.all([
+      linhaDigitavelDoBoleto(aberta.id).catch(() => null),
+      qrCodeDaCobranca(aberta.id).catch(() => null),
+    ]);
+    return {
+      ok: true,
+      cobrancaId: aberta.id,
+      tipo: "boleto",
+      boleto: {
+        linhaDigitavel: linha?.identificationField ?? null,
+        pdfUrl: aberta.bankSlipUrl ?? null,
+        faturaUrl: aberta.invoiceUrl ?? null,
+        vencimento: aberta.dueDate,
+        valor: aberta.value,
+        pix: pix ? { imagemBase64: pix.encodedImage, copiaECola: pix.payload } : null,
+      },
+    };
+  } catch (erro) {
+    return { ok: false, erro: comoErro(erro) };
+  }
+}
+
+/**
+ * Se uma cobrança específica da renovação já foi paga.
+ *
+ * Diferente de `conferirPagamento`, que responde "a pessoa tem acesso?" — e
+ * quem paga a renovação adiantado já tem, então a tela comemoraria um
+ * pagamento que ainda não caiu. A cobrança é conferida contra a assinatura
+ * de quem pergunta: ninguém consulta, nem libera, a cobrança de outra pessoa.
+ */
+export async function conferirCobranca(
+  cobrancaId: string
+): Promise<{ pago: boolean }> {
+  try {
+    const perfil = await garantirPerfil();
+    const assinatura = await assinaturaDoPerfil(perfil.id);
+    if (!assinatura?.asaas_subscription_id) return { pago: false };
+
+    const cobranca = await obterCobranca(cobrancaId);
+    if (cobranca.subscription !== assinatura.asaas_subscription_id) {
+      return { pago: false };
+    }
+    if (!PAGAS.has(cobranca.status)) return { pago: false };
+
+    await registrarPagamentoConfirmado(assinatura);
+    revalidatePath("/app", "layout");
+    return { pago: true };
+  } catch {
+    return { pago: false };
   }
 }

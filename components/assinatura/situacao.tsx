@@ -8,8 +8,15 @@ import { toast } from "sonner";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cancelarMinhaAssinatura } from "@/lib/actions/assinatura";
+import { PagamentoBoleto, PagamentoPix } from "@/components/assinatura/checkout";
+import {
+  cancelarMinhaAssinatura,
+  cobrancaParaPagarAgora,
+  conferirCobranca,
+  type CobrancaParaPagarAgora,
+} from "@/lib/actions/assinatura";
 import { formatarMoeda } from "@/lib/format";
+import { avisoDeCobranca } from "@/lib/pagamentos/inadimplencia";
 import type { PlanoDeCobranca } from "@/lib/pagamentos/planos";
 import type { Assinatura, StatusDaAssinatura } from "@/types/database";
 
@@ -27,16 +34,44 @@ function dataPorExtenso(iso: string | null): string {
   return `${dia}/${mes}/${ano}`;
 }
 
+type CobrancaAberta = Extract<CobrancaParaPagarAgora, { ok: true }>;
+
 export function SituacaoDaAssinatura({
   assinatura,
   plano,
+  hoje,
 }: {
   assinatura: Assinatura;
   plano: PlanoDeCobranca | null;
+  /** Hoje em Brasília, vindo do servidor: o relógio do aparelho pode mentir. */
+  hoje: string;
 }) {
   const router = useRouter();
   const [cancelando, iniciarCancelamento] = React.useTransition();
   const [confirmando, setConfirmando] = React.useState(false);
+  const [buscandoCobranca, iniciarBusca] = React.useTransition();
+  const [cobranca, setCobranca] = React.useState<CobrancaAberta | null>(null);
+
+  const aviso = avisoDeCobranca(assinatura, hoje);
+  const pagaNaMao = assinatura.metodo === "PIX" || assinatura.metodo === "BOLETO";
+  const podePagarAgora = pagaNaMao && aviso !== null;
+
+  function pagarAgora() {
+    iniciarBusca(async () => {
+      const resultado = await cobrancaParaPagarAgora();
+      if (!resultado.ok) {
+        toast.error(resultado.erro);
+        return;
+      }
+      setCobranca(resultado);
+    });
+  }
+
+  const conferirEstaCobranca = React.useCallback(
+    async () =>
+      cobranca ? (await conferirCobranca(cobranca.cobrancaId)).pago : false,
+    [cobranca]
+  );
 
   const status = assinatura.status as StatusDaAssinatura;
   const rotulo = ROTULO[status] ?? ROTULO.pendente;
@@ -54,13 +89,30 @@ export function SituacaoDaAssinatura({
         ? "Boleto"
         : "Pix";
 
-  const avisoDeAtraso = noCartao
-    ? "O Asaas tenta de novo nos próximos dias. Se o cartão mudou, cancele aqui e assine outra vez com o cartão novo."
-    : pixAutomatico
-      ? "O débito automático não passou — costuma ser saldo ou limite do Pix no banco. O Asaas tenta de novo nos próximos dias. O acesso continua até a data acima."
-      : noBoleto
-        ? "O boleto venceu sem pagamento. Ele continua no seu e-mail e ainda pode ser pago, com os acréscimos do banco. O acesso continua até a data acima."
-        : "Gere um novo Pix assinando de novo por aqui. O acesso continua até a data acima.";
+  const emAtraso = aviso?.tipo === "em_atraso" ? aviso : null;
+
+  const prazoDeCancelamento = emAtraso?.cancelaEm
+    ? ` Sem pagamento até ${dataPorExtenso(emAtraso.cancelaEm)}, a assinatura é cancelada.`
+    : "";
+
+  const situacaoDoAcesso = !emAtraso
+    ? ""
+    : emAtraso.diasDeAcesso > 0
+      ? ` O acesso continua por mais ${emAtraso.diasDeAcesso} ${emAtraso.diasDeAcesso === 1 ? "dia" : "dias"}.`
+      : emAtraso.diasDeAcesso === 0
+        ? " Hoje é o último dia de acesso às ferramentas."
+        : " As ferramentas estão bloqueadas até o pagamento; a trilha do curso continua aberta.";
+
+  const avisoDeAtraso =
+    (noCartao
+      ? "O Asaas já tentou cobrar o cartão. Se ele mudou, cancele aqui e assine outra vez com o cartão novo."
+      : pixAutomatico
+        ? "O débito automático não passou — costuma ser saldo ou limite do Pix no banco."
+        : noBoleto
+          ? "O boleto venceu sem pagamento. Dá para pagar agora, pelo botão abaixo."
+          : "O Pix da renovação não foi pago. Dá para pagar agora, pelo botão abaixo.") +
+    situacaoDoAcesso +
+    prazoDeCancelamento;
 
   function cancelar() {
     iniciarCancelamento(async () => {
@@ -91,7 +143,7 @@ export function SituacaoDaAssinatura({
               <p className="t-h3">Plano {plano?.nome.toLowerCase() ?? assinatura.plano}</p>
               <p className="t-small text-muted">
                 {formatarMoeda(Number(assinatura.valor))}{" "}
-                {assinatura.plano === "anual" ? "por ano" : "por mês"} ·{" "}
+                {plano?.periodo ?? "por mês"} ·{" "}
                 {formaDePagamento}
               </p>
             </div>
@@ -126,6 +178,32 @@ export function SituacaoDaAssinatura({
         <Alert tone="warning" title="A última cobrança não foi paga">
           {avisoDeAtraso}
         </Alert>
+      ) : aviso?.tipo === "vence_em_breve" ? (
+        <Alert tone="info" title={aviso.dias === 0 ? "Seu plano vence hoje" : `Seu plano vence em ${aviso.dias} ${aviso.dias === 1 ? "dia" : "dias"}`}>
+          A renovação é paga {noBoleto ? "no boleto" : "no Pix"}: pague até{" "}
+          {dataPorExtenso(aviso.vencimento)} para não perder o acesso. A
+          cobrança também está no seu e-mail.
+        </Alert>
+      ) : null}
+
+      {podePagarAgora && !cobranca ? (
+        <Button type="button" onClick={pagarAgora} disabled={buscandoCobranca}>
+          {buscandoCobranca ? (
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          ) : null}
+          Pagar agora
+        </Button>
+      ) : null}
+
+      {cobranca?.tipo === "pix" ? (
+        <PagamentoPix
+          qrCode={cobranca.qrCode}
+          automatico={false}
+          periodo={plano?.periodo ?? "por mês"}
+          conferir={conferirEstaCobranca}
+        />
+      ) : cobranca?.tipo === "boleto" ? (
+        <PagamentoBoleto boleto={cobranca.boleto} conferir={conferirEstaCobranca} />
       ) : null}
 
       {status !== "cancelada" ? (

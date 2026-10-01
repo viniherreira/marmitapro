@@ -150,6 +150,25 @@ o app saber quando o cliente autoriza ou cancela no banco, o webhook precisa
 dos eventos `PIX_AUTOMATIC_RECURRING_AUTHORIZATION_*` e
 `PIX_AUTOMATIC_RECURRING_PAYMENT_INSTRUCTION_REFUSED`.
 
+#### Régua de cobrança (quem não paga)
+
+O Asaas já avisa o cliente por e-mail e SMS: 10 dias antes, no vencimento,
+no dia do atraso e 7 dias depois. No cartão, ele tenta cobrar até seis vezes
+em dois dias. O app completa com o que só ele pode fazer
+(`lib/pagamentos/inadimplencia.ts`):
+
+| Quando | O que acontece |
+| --- | --- |
+| 3 dias antes | faixa no topo do app, só para Pix comum e boleto, com "Pagar agora" |
+| vencimento + 3 dias | fim da carência: ferramentas bloqueiam, a trilha continua aberta |
+| vencimento + 15 dias | a rotina diária cancela a assinatura no Asaas |
+
+Pagando antes do cancelamento, o acesso volta na hora. Os dados nunca são
+apagados. A rotina também cancela assinaturas abertas e nunca pagas há 15
+dias (quem gerou um Pix ou boleto e desistiu). Ela roda todo dia às 9h de
+Brasília pelo Vercel Cron (`vercel.json`) e exige a variável `CRON_SECRET`;
+sem ela, a rota responde 503 e não cancela nada.
+
 #### Acesso cortesia
 
 Contas que usam o app completo sem pagar (o dono, contas de teste) ficam na

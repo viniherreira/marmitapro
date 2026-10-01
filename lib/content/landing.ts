@@ -8,7 +8,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { PLANOS_DE_COBRANCA, precoCurto } from "@/lib/pagamentos/planos";
+import {
+  PLANOS_DE_COBRANCA,
+  equivalenteMensal,
+  precoCurto,
+} from "@/lib/pagamentos/planos";
 
 /**
  * Conteúdo da página de vendas. Fica fora dos componentes para que a
@@ -213,6 +217,13 @@ export type Plano = {
   inclui: string[];
 };
 
+/** Quanto o trimestral economiza sobre três meses do mensal, em %. */
+const ECONOMIA_DO_TRIMESTRAL = Math.round(
+  (1 -
+    PLANOS_DE_COBRANCA.trimestral.valor / (PLANOS_DE_COBRANCA.mensal.valor * 3)) *
+    100
+);
+
 export const PLANOS: Plano[] = [
   {
     id: "basico",
@@ -246,11 +257,26 @@ export const PLANOS: Plano[] = [
     ],
   },
   {
+    id: "trimestral",
+    nome: "Trimestral",
+    preco: precoCurto(PLANOS_DE_COBRANCA.trimestral),
+    periodo: PLANOS_DE_COBRANCA.trimestral.periodo,
+    equivalente: equivalenteMensal(PLANOS_DE_COBRANCA.trimestral) ?? undefined,
+    descricao: "Tempo de validar o cardápio sem pagar todo mês.",
+    destaque: false,
+    inclui: [
+      "Tudo do plano mensal",
+      `${ECONOMIA_DO_TRIMESTRAL}% de economia sobre o mensal`,
+      "Uma cobrança a cada três meses",
+      "Pix, cartão ou boleto",
+    ],
+  },
+  {
     id: "anual",
     nome: "Anual",
     preco: precoCurto(PLANOS_DE_COBRANCA.anual),
     periodo: "por ano",
-    equivalente: "equivale a R$ 24,17 por mês",
+    equivalente: equivalenteMensal(PLANOS_DE_COBRANCA.anual) ?? undefined,
     descricao: "Para quem já decidiu que isso vira renda.",
     // Sem o selo "Melhor valor": com o Básico a R$ 5 por mês, o anual deixou
     // de ser o mais barato, e o selo passaria a prometer o que não entrega.

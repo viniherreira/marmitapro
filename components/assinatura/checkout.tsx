@@ -140,7 +140,6 @@ export function Checkout({ planos }: { planos: PlanoNaTela[] }) {
   const [qrCode, setQrCode] = React.useState<QrCodeParaPagar | null>(null);
   const [pixAutomatico, setPixAutomatico] = React.useState(false);
   const [boleto, setBoleto] = React.useState<BoletoParaPagar | null>(null);
-  const [copiado, setCopiado] = React.useState(false);
 
   const {
     register,
@@ -232,12 +231,6 @@ export function Checkout({ planos }: { planos: PlanoNaTela[] }) {
         qrCode={qrCode}
         automatico={pixAutomatico}
         periodo={escolhido.periodo}
-        copiado={copiado}
-        aoCopiar={async () => {
-          await navigator.clipboard.writeText(qrCode.copiaECola);
-          setCopiado(true);
-          setTimeout(() => setCopiado(false), 2500);
-        }}
       />
     );
   }
@@ -251,7 +244,7 @@ export function Checkout({ planos }: { planos: PlanoNaTela[] }) {
       <section>
         <h2 className="t-eyebrow">1. Escolha o plano</h2>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {planos.map((item) => (
             <button
               key={item.id}
@@ -485,40 +478,68 @@ function BotaoDeMetodo({
   );
 }
 
+/** Pergunta ao servidor se o pagamento esperado caiu. */
+type Conferir = () => Promise<boolean>;
+
+/** Padrão do checkout: a pessoa já tem acesso? */
+const conferirAcesso: Conferir = async () => (await conferirPagamento()).liberado;
+
+/**
+ * Enquanto a tela está aberta, pergunta de tempos em tempos se o pagamento
+ * caiu. O webhook costuma chegar antes, mas quem está olhando a tela não
+ * deveria precisar recarregar para descobrir.
+ *
+ * O `conferir` fica numa ref: a tela que chama costuma criá-lo a cada
+ * renderização, e recriar o intervalo junto zeraria a contagem toda vez.
+ */
+function useAguardarPagamento(conferir: Conferir, intervaloMs: number, ligado = true) {
+  const router = useRouter();
+  const conferirAtual = React.useRef(conferir);
+
+  React.useEffect(() => {
+    conferirAtual.current = conferir;
+  }, [conferir]);
+
+  React.useEffect(() => {
+    if (!ligado) return;
+    const intervalo = setInterval(async () => {
+      if (await conferirAtual.current()) {
+        clearInterval(intervalo);
+        toast.success("Pagamento confirmado.");
+        router.refresh();
+      }
+    }, intervaloMs);
+    return () => clearInterval(intervalo);
+  }, [intervaloMs, ligado, router]);
+}
+
 /**
  * Tela do Pix. Enquanto ela está aberta, perguntamos ao servidor se a
  * cobrança foi paga — o webhook costuma chegar antes, mas quem está olhando a
  * tela não deveria precisar recarregar para descobrir.
  */
-function PagamentoPix({
+export function PagamentoPix({
   qrCode,
   automatico,
   periodo,
-  copiado,
-  aoCopiar,
+  conferir = conferirAcesso,
 }: {
   qrCode: QrCodeParaPagar;
   /** Pix Automático: o mesmo QR paga agora e autoriza os próximos débitos. */
   automatico: boolean;
-  /** "por mês" ou "por ano", para dizer de quanto em quanto tempo debita. */
+  /** "por mês", "por trimestre" ou "por ano": de quanto em quanto tempo debita. */
   periodo: string;
-  copiado: boolean;
-  aoCopiar: () => void;
+  /** O que perguntar ao servidor enquanto a tela espera o pagamento. */
+  conferir?: Conferir;
 }) {
-  const router = useRouter();
+  const [copiado, setCopiado] = React.useState(false);
+  useAguardarPagamento(conferir, 5000);
 
-  React.useEffect(() => {
-    const intervalo = setInterval(async () => {
-      const { liberado } = await conferirPagamento();
-      if (liberado) {
-        clearInterval(intervalo);
-        toast.success("Pagamento confirmado. Acesso liberado.");
-        router.refresh();
-      }
-    }, 5000);
-
-    return () => clearInterval(intervalo);
-  }, [router]);
+  async function aoCopiar() {
+    await navigator.clipboard.writeText(qrCode.copiaECola);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2500);
+  }
 
   return (
     <div className="space-y-6">
@@ -599,8 +620,14 @@ function dataBrasileira(iso: string): string {
  * atalho: pago por Pix, o acesso libera em segundos em vez de esperar a
  * compensação — e aí vale a pena a tela ficar perguntando se caiu.
  */
-function PagamentoBoleto({ boleto }: { boleto: BoletoParaPagar }) {
-  const router = useRouter();
+export function PagamentoBoleto({
+  boleto,
+  conferir = conferirAcesso,
+}: {
+  boleto: BoletoParaPagar;
+  /** O que perguntar ao servidor enquanto a tela espera o Pix do boleto. */
+  conferir?: Conferir;
+}) {
   const [copiado, setCopiado] = React.useState<"linha" | "pix" | null>(null);
 
   async function copiar(texto: string, qual: "linha" | "pix") {
@@ -609,18 +636,9 @@ function PagamentoBoleto({ boleto }: { boleto: BoletoParaPagar }) {
     setTimeout(() => setCopiado(null), 2500);
   }
 
-  React.useEffect(() => {
-    if (!boleto.pix) return;
-    const intervalo = setInterval(async () => {
-      const { liberado } = await conferirPagamento();
-      if (liberado) {
-        clearInterval(intervalo);
-        toast.success("Pagamento confirmado. Acesso liberado.");
-        router.refresh();
-      }
-    }, 10000);
-    return () => clearInterval(intervalo);
-  }, [boleto.pix, router]);
+  // Boleto compensa em horas ou dias; só vale ficar perguntando quando há o
+  // atalho do Pix, que cai em segundos.
+  useAguardarPagamento(conferir, 10000, Boolean(boleto.pix));
 
   return (
     <div className="space-y-6">

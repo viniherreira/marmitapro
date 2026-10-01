@@ -34,6 +34,8 @@ export const env = {
   supabaseServiceRoleKey: valor("SUPABASE_SERVICE_ROLE_KEY"),
   asaasApiKey: valor("ASAAS_API_KEY"),
   asaasWebhookToken: valor("ASAAS_WEBHOOK_TOKEN"),
+  /** Senha que a Vercel manda nas chamadas das rotinas agendadas (cron). */
+  cronSecret: valor("CRON_SECRET"),
 } as const;
 
 /** O Clerk só é montado quando as duas chaves existem e são reais. */

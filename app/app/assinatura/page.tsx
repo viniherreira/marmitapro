@@ -5,7 +5,13 @@ import { Checkout } from "@/components/assinatura/checkout";
 import { SituacaoDaAssinatura } from "@/components/assinatura/situacao";
 import { Alert } from "@/components/ui/alert";
 import { assinaturaDaAcesso, situacaoDeAcesso } from "@/lib/data/assinaturas";
-import { PLANOS_DE_COBRANCA, aceitaBoleto } from "@/lib/pagamentos/planos";
+import { hojeNoBrasil } from "@/lib/datas";
+import {
+  PLANOS_DE_COBRANCA,
+  aceitaBoleto,
+  equivalenteMensal,
+  planoMaisBarato,
+} from "@/lib/pagamentos/planos";
 
 export const metadata: Metadata = {
   title: "Assinatura",
@@ -15,38 +21,22 @@ export const metadata: Metadata = {
 /** A tela precisa refletir o pagamento que acabou de cair, nunca um cache. */
 export const dynamic = "force-dynamic";
 
-const { basico, mensal, anual } = PLANOS_DE_COBRANCA;
+/**
+ * Os planos na ordem em que aparecem, montados a partir da fonte única de
+ * preços. Plano novo em lib/pagamentos/planos.ts aparece aqui sozinho.
+ */
+const maisBarato = planoMaisBarato();
 
-const PLANOS_NA_TELA = [
-  {
-    id: basico.id,
-    nome: basico.nome,
-    valor: basico.valor,
-    periodo: "por mês",
-    destaque: true,
-    selo: "Menor preço",
-    aceitaBoleto: aceitaBoleto(basico),
-  },
-  {
-    id: mensal.id,
-    nome: mensal.nome,
-    valor: mensal.valor,
-    periodo: "por mês",
-    destaque: false,
-    aceitaBoleto: aceitaBoleto(mensal),
-  },
-  {
-    id: anual.id,
-    nome: anual.nome,
-    valor: anual.valor,
-    periodo: "por ano",
-    equivalente: `equivale a R$ ${(anual.valor / 12)
-      .toFixed(2)
-      .replace(".", ",")} por mês`,
-    destaque: false,
-    aceitaBoleto: aceitaBoleto(anual),
-  },
-];
+const PLANOS_NA_TELA = Object.values(PLANOS_DE_COBRANCA).map((plano) => ({
+  id: plano.id,
+  nome: plano.nome,
+  valor: plano.valor,
+  periodo: plano.periodo,
+  equivalente: equivalenteMensal(plano) ?? undefined,
+  destaque: plano.id === maisBarato.id,
+  selo: plano.id === maisBarato.id ? "Menor preço" : undefined,
+  aceitaBoleto: aceitaBoleto(plano),
+}));
 
 export default async function AssinaturaPage() {
   const situacao = await situacaoDeAcesso();
@@ -64,12 +54,17 @@ export default async function AssinaturaPage() {
           Falta a chave do Asaas neste ambiente. Enquanto ela não existir, o app
           segue com tudo liberado e nada é cobrado.
         </Alert>
-      ) : situacao.assinatura && assinaturaDaAcesso(situacao.assinatura) ? (
+      ) : situacao.assinatura &&
+        (assinaturaDaAcesso(situacao.assinatura) ||
+          situacao.assinatura.status === "atrasada") ? (
         // Assinatura paga vem antes da cortesia: quem tem as duas precisa ver
-        // e poder cancelar o que está pagando.
+        // e poder cancelar o que está pagando. E quem está em atraso vê a
+        // própria assinatura, com a cobrança para pagar — não o checkout, que
+        // abriria uma assinatura nova em cima da que está devendo.
         <SituacaoDaAssinatura
           assinatura={situacao.assinatura}
           plano={situacao.plano}
+          hoje={hojeNoBrasil()}
         />
       ) : situacao.cortesia ? (
         <Alert tone="success" title="Acesso cortesia">
